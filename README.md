@@ -1,3 +1,7 @@
+<img width="1911" height="1044" alt="Screenshot 2026-09-21 090014" src="https://github.com/user-attachments/assets/f9d78c6b-c83e-4019-8c63-9969efd63585" />
+
+
+
 # Shared-Prefix LLM Inference Benchmark
 
 A small local ML systems experiment on whether repeated long prompt prefixes change inference performance on Ollama. It runs on Windows with the installed `qwen2.5:7b`, records every request, and treats cache attribution separately from model warm-up.
