@@ -1,0 +1,1 @@
+# Python 3.10+ standard library only. Ollama and nvidia-smi are local executables.

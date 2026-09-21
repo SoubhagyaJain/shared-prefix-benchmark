@@ -1,0 +1,183 @@
+{
+  "started_utc": "2026-09-21T03:22:18.134985+00:00",
+  "run_id": "ac9d20a39c56",
+  "finished_utc": "2026-09-21T03:26:01.456325+00:00",
+  "ollama_version": "0.34.2",
+  "model": "qwen2.5:7b",
+  "system": "Windows-11-10.0.26200-SP0",
+  "settings": {
+    "trials": 3,
+    "requests_per_trial": 5,
+    "prefix_lines": 105,
+    "temperature": 0.0,
+    "max_output_tokens": 80,
+    "num_ctx": 8192,
+    "concurrency": 1,
+    "raw_prompt": true
+  },
+  "notes": [
+    "Shared prefix is explicitly primed before each block.",
+    "GPU memory is an end-of-request whole-device snapshot, not peak or model-only usage.",
+    "TTFT is client-observed time to first nonempty streamed response chunk.",
+    "Prompt tokens/s divides uncached prompt tokens by prompt evaluation duration; unavailable without cached-token count."
+  ],
+  "statistics": {
+    "different_prefix": {
+      "prompt_tokens": {
+        "count": 15,
+        "mean": 2832.4666666666667,
+        "median": 2835.0,
+        "p95": null
+      },
+      "cached_prompt_tokens": {
+        "count": 15,
+        "mean": 18.2,
+        "median": 21.0,
+        "p95": null
+      },
+      "uncached_prompt_tokens": {
+        "count": 15,
+        "mean": 2814.266666666667,
+        "median": 2814.0,
+        "p95": null
+      },
+      "output_tokens": {
+        "count": 15,
+        "mean": 80.0,
+        "median": 80.0,
+        "p95": null
+      },
+      "ttft_s": {
+        "count": 15,
+        "mean": 3.6244707066666706,
+        "median": 4.10221649999994,
+        "p95": null
+      },
+      "prefill_s": {
+        "count": 15,
+        "mean": 3.4556313333333333,
+        "median": 3.912624,
+        "p95": null
+      },
+      "generation_s": {
+        "count": 15,
+        "mean": 5.072424066666667,
+        "median": 5.065475,
+        "p95": null
+      },
+      "api_total_s": {
+        "count": 15,
+        "mean": 8.691653206666667,
+        "median": 9.22236,
+        "p95": null
+      },
+      "wall_latency_s": {
+        "count": 15,
+        "mean": 8.697397680000055,
+        "median": 9.223601500000314,
+        "p95": null
+      },
+      "prompt_tokens_per_s": {
+        "count": 15,
+        "mean": 861.7805961867037,
+        "median": 719.9771815538626,
+        "p95": null
+      },
+      "generation_tokens_per_s": {
+        "count": 15,
+        "mean": 15.948040703622725,
+        "median": 15.793188200514265,
+        "p95": null
+      },
+      "gpu_memory_mib": {
+        "count": 15,
+        "mean": 4624.666666666667,
+        "median": 4625.0,
+        "p95": null
+      },
+      "request_throughput_per_s": 0.11497692031485833,
+      "end_to_end_output_tokens_per_s": 9.198153625188667
+    },
+    "shared_prefix": {
+      "prompt_tokens": {
+        "count": 15,
+        "mean": 2816.0,
+        "median": 2816.0,
+        "p95": null
+      },
+      "cached_prompt_tokens": {
+        "count": 15,
+        "mean": 2785.6,
+        "median": 2786.0,
+        "p95": null
+      },
+      "uncached_prompt_tokens": {
+        "count": 15,
+        "mean": 30.4,
+        "median": 30.0,
+        "p95": null
+      },
+      "output_tokens": {
+        "count": 15,
+        "mean": 66.0,
+        "median": 63.0,
+        "p95": null
+      },
+      "ttft_s": {
+        "count": 15,
+        "mean": 0.6338648866666518,
+        "median": 0.7613365999995949,
+        "p95": null
+      },
+      "prefill_s": {
+        "count": 15,
+        "mean": 0.5822605333333333,
+        "median": 0.730053,
+        "p95": null
+      },
+      "generation_s": {
+        "count": 15,
+        "mean": 4.193828666533333,
+        "median": 4.178487,
+        "p95": null
+      },
+      "api_total_s": {
+        "count": 15,
+        "mean": 4.821929973333333,
+        "median": 4.879208,
+        "p95": null
+      },
+      "wall_latency_s": {
+        "count": 15,
+        "mean": 4.828228419999899,
+        "median": 4.880034599999817,
+        "p95": null
+      },
+      "prompt_tokens_per_s": {
+        "count": 15,
+        "mean": 61.137403100660606,
+        "median": 41.09290695333079,
+        "p95": null
+      },
+      "generation_tokens_per_s": {
+        "count": 15,
+        "mean": 15.912153065099568,
+        "median": 15.212026171530427,
+        "p95": null
+      },
+      "gpu_memory_mib": {
+        "count": 15,
+        "mean": 4612.0,
+        "median": 4608.0,
+        "p95": null
+      },
+      "request_throughput_per_s": 0.20711530462347533,
+      "end_to_end_output_tokens_per_s": 13.66961010514937
+    },
+    "improvement_percent": {
+      "prefill_median": 81.3410897648228,
+      "latency_median": 47.09187512058439,
+      "request_throughput": 80.1364169924719
+    }
+  }
+}
