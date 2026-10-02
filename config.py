@@ -17,3 +17,6 @@ class Config:
     keep_alive: str = "30m"
     raw_csv: str = "results/raw_results.csv"
     summary_json: str = "results/summary.json"
+    sweep: bool = False
+    prefix_lengths: tuple[int, ...] = (20, 40, 80, 105, 160, 220)
+    chart_svg: str = "results/sweep_chart.svg"

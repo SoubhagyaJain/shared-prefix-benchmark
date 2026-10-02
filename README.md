@@ -23,6 +23,19 @@ python benchmark.py
 
 No `pip install` is required; Python's standard library is sufficient. The default run uses three trials with five requests per scenario in each trial (30 measured requests), plus model warm-up and shared-prefix priming. It may take several minutes on a 6 GB laptop GPU because the 7B model may split across CPU and GPU. A shorter smoke run is `python benchmark.py --trials 1 --requests 2`; write its output to other paths if you want to keep the full run's results. CLI options include `--model`, `--url`, `--prefix-lines`, `--num-ctx`, `--max-output-tokens`, `--csv`, and `--summary`.
 
+## Prefix-length sweep
+
+Run a short smoke sweep, then the full default sweep:
+
+```powershell
+python benchmark.py --sweep --prefix-lengths 20,40 --trials 1 --requests 1 --max-output-tokens 16
+python benchmark.py --sweep
+```
+
+The full sweep tests 20, 40, 80, 105, 160, and 220 reference lines, with three trials and five measured requests per scenario at each length. Use `--prefix-lengths 20,80,160` to choose other lengths; it also enables sweep mode. The sweep writes [request rows](results/sweep_raw_results.csv), [per-length statistics](results/sweep_summary.json), and an [SVG chart](results/sweep_chart.svg). These are separate from the existing single-length `results/raw_results.csv` and `results/summary.json`. Override paths with `--csv`, `--summary`, and `--chart`.
+
+Each CSV row contains the configured line count and Ollama's actual prompt token count. A distinct longest-length warm-up checks the context budget, and the runner checks every priming and measured prompt count plus `--max-output-tokens` and a 256-token reserve against `--num-ctx`. The JSON groups mean and median cached tokens, uncached tokens, prompt evaluation, TTFT, generation, wall latency, and per-request throughput by length and scenario. It also gives total measured request throughput (requests divided by summed wall time) and percentage improvements. Positive timing improvements mean the shared case was faster; positive throughput improvements mean it served more requests per second. The chart plots median TTFT and prompt evaluation against line count. Compare the actual token counts before attributing a timing gap to prefix reuse. **The reported workload uses a warm prefix:** priming requests are excluded from measured results and throughput.
+
 ## Experiment
 
 | Control | Value |
