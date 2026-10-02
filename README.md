@@ -4,7 +4,7 @@
 
 # Shared-Prefix LLM Inference Benchmark
 
-A small local ML systems experiment on whether repeated long prompt prefixes change inference performance on Ollama. It runs on Windows with the installed `qwen2.5:7b`, records every request, and treats cache attribution separately from model warm-up.
+A small local ML systems experiment on whether repeated long prompt prefixes change inference performance on Ollama. It runs on Windows with the installed `qwen2.5:7b`, records every request, and supports a primed single-length comparison, a prefix-length sweep, and a cold-prefix break-even analysis.
 
 ## Problem and hypothesis
 
@@ -23,6 +23,12 @@ python benchmark.py
 
 No `pip install` is required; Python's standard library is sufficient. The default run uses three trials with five requests per scenario in each trial (30 measured requests), plus model warm-up and shared-prefix priming. It may take several minutes on a 6 GB laptop GPU because the 7B model may split across CPU and GPU. A shorter smoke run is `python benchmark.py --trials 1 --requests 2`; write its output to other paths if you want to keep the full run's results. CLI options include `--model`, `--url`, `--prefix-lines`, `--num-ctx`, `--max-output-tokens`, `--csv`, and `--summary`.
 
+| Mode | Command | What it measures |
+| --- | --- | --- |
+| Primed single length | `python benchmark.py` | Repeated use of one explicitly primed prefix at 105 lines |
+| Primed length sweep | `python benchmark.py --sweep` | Repeated use across six prefix lengths |
+| Cold-prefix break-even | `python benchmark.py --break-even --max-requests 8` | First unprimed request plus subsequent reuse, compared with distinct prefixes |
+
 ## Prefix-length sweep
 
 Run a short smoke sweep, then the full default sweep:
@@ -38,7 +44,34 @@ Each CSV row contains the configured line count and Ollama's actual prompt token
 
 ![Prefix-length sweep chart from the two-length smoke run](results/sweep_chart.svg)
 
-## Experiment
+## Cold-prefix break-even
+
+Run the short smoke test shown below, or use a longer run with more trials:
+
+```powershell
+python benchmark.py --break-even --trials 2 --max-requests 3 --prefix-lines 40 --max-output-tokens 16
+python benchmark.py --break-even --trials 5 --max-requests 8
+```
+
+Here **cold** means a new prefix on an already loaded, warmed model. Before each trial, the runner sends two short warm-ups and one unrelated long warm-up. It creates a fresh shared prefix for that trial, measures its first request **without priming**, then measures up to `--max-requests` distinct questions on the same prefix. The comparison sequence has the same request count and question indices, but a new, similarly sized prefix on every request. Scenario order alternates across trials. All requests use the existing sequential streamed settings (`qwen2.5:7b`, `raw=true`, temperature 0), and the warm-ups are excluded from results.
+
+For each request count N, the runner sums the first N wall latencies and prompt evaluation times within each trial. It reports each trial's curve plus the mean cumulative curves across trials. Savings are distinct time minus shared time; percentage savings divide that difference by distinct time, and amortized time divides cumulative time by N. Wall and prompt-evaluation break-even points are reported separately as the first N with **strictly lower** mean shared cumulative time. A null break-even means the measured range did not cross. The first-request extra cost is also recorded; it can be negative because of timing variation.
+
+The run writes [request-level CSV](results/breakeven_raw_results.csv), [cumulative CSV](results/breakeven_cumulative.csv), [JSON summary](results/breakeven_summary.json), and a [cumulative-time chart](results/breakeven_chart.svg). These paths are separate from the single-length and sweep results. Override them with `--csv`, `--cumulative-csv`, `--summary`, and `--chart`. Request rows include wall latency, TTFT, prompt evaluation, actual prompt and cached-token counts, generation time, output tokens, and whether the prefix was cold, warm, or new.
+
+**Observed smoke run:** On Ollama 0.35.0, the two-trial, 40-line command above produced 12 measured requests. Mean cumulative wall times were:
+
+| Requests (N) | Distinct prefixes | Shared prefix | Savings |
+| ---: | ---: | ---: | ---: |
+| 1 | 1.836 s | 1.814 s | 0.023 s (1.2%) |
+| 2 | 3.633 s | 2.905 s | 0.728 s (20.0%) |
+| 3 | 5.456 s | 3.990 s | 1.466 s (26.9%) |
+
+The strict mean-curve break-even was N=1 for both wall latency and prompt evaluation. The first shared request averaged only 23 ms faster than the first distinct request, so that N=1 crossing is sensitive to noise; it does not demonstrate an amortized cold-prefix penalty. Later shared requests reported about 1,096 cached tokens, versus 2 on the first shared request. Measured model load durations were 6.5–8.3 ms, consistent with the model staying loaded. The run used only two trials, three requests, and 16 output tokens, so repeat with more trials and requests before treating a crossing point as stable. Prompt lengths and output lengths can vary slightly, and generation, thermal behavior, cache eviction, and block order can affect wall time.
+
+![Cold-prefix cumulative time chart from the two-trial smoke run](results/breakeven_chart.svg)
+
+## Primed single-length experiment
 
 | Control | Value |
 | --- | --- |
@@ -89,24 +122,25 @@ See [architecture.md](docs/architecture.md) for measurement details.
 
 `results/raw_results.csv` holds request-level data. `results/summary.json` holds mean and median for each metric. P95 is emitted only with at least 20 observations in a scenario; five or fifteen points cannot support a useful tail estimate. Positive improvement percentages favor shared prefix.
 
-## Results
+## Primed single-length results
 
-Measured locally on 21 September 2026 with Ollama 0.34.2, `qwen2.5:7b`, Windows, an RTX 4050 Laptop GPU (6 GB VRAM), and 16 GB system RAM. Ollama reported the model split as 24% CPU / 76% GPU at an 8,192-token context. Each scenario has 15 measured requests across three trials; input prompts ranged from 2,818 to 2,849 tokens. The shared block was primed before measurement, so these results describe repeated use of an already warm prefix.
+Measured locally on 21 September 2026 with Ollama 0.34.2, `qwen2.5:7b`, Windows, an RTX 4050 Laptop GPU (6 GB VRAM), and 16 GB system RAM. Ollama reported the model split as 24% CPU / 76% GPU at an 8,192-token context. Each scenario has 15 measured requests across three trials; input prompts ranged from 2,815 to 2,846 tokens. The shared block was primed before measurement, so these results describe repeated use of an already warm prefix. The values below come from the linked CSV and JSON files.
 
 | Metric | Different prefixes | Shared prefix | Change favoring shared |
 | --- | ---: | ---: | ---: |
-| Median prompt tokens | 2,834 | 2,818 | — |
-| Median cached prompt tokens | 22 | 2,788 | — |
-| Median uncached prompt tokens | 2,818 | 30 | — |
-| Median prompt evaluation | 2.534 s | 0.559 s | 77.9% less |
-| Median TTFT | 2.653 s | 0.585 s | 77.9% less |
-| Median wall latency | 7.284 s | 5.529 s | 24.1% less |
-| Mean wall latency | 7.357 s | 5.354 s | — |
-| Mean generation duration | 4.731 s | 4.826 s | — |
-| Request throughput | 0.136 req/s | 0.187 req/s | 37.4% more |
-| Median whole-device GPU memory snapshot | 4,613 MiB | 4,612 MiB | — |
+| Median prompt tokens | 2,835 | 2,816 | — |
+| Median cached prompt tokens | 21 | 2,786 | — |
+| Median uncached prompt tokens | 2,814 | 30 | — |
+| Median prompt evaluation | 3.913 s | 0.730 s | 81.3% less |
+| Median TTFT | 4.102 s | 0.761 s | 81.4% less |
+| Median wall latency | 9.224 s | 4.880 s | 47.1% less |
+| Mean wall latency | 8.697 s | 4.828 s | — |
+| Mean generation duration | 5.072 s | 4.194 s | — |
+| Mean output tokens | 80 | 66 | — |
+| Request throughput | 0.115 req/s | 0.207 req/s | 80.1% more |
+| Median whole-device GPU memory snapshot | 4,625 MiB | 4,608 MiB | — |
 
-The measured cached-token gap is direct API evidence that this Ollama run reused most of the shared prefix across independent requests. The smaller change in total wall latency is expected because generation still took roughly 4.7–4.8 seconds on average. Uncached prompt tokens per second was lower in the shared case (median 54 versus 1,110) because the fixed overhead of evaluating about 30 remaining tokens dominates that small denominator; it is not a sign that shared prefill did more work. The run had 15 observations per scenario, so P95 is intentionally absent. See [raw measurements](results/raw_results.csv) and [summary statistics](results/summary.json) for request-level values, means, and medians.
+The measured cached-token gap is direct API evidence that this Ollama run reused most of the shared prefix across independent requests. The smaller percentage change in total wall latency reflects time spent generating output as well as evaluating the prompt. The shared requests generated fewer tokens on average (66 versus 80), so their generation-time difference cannot be attributed solely to prefix reuse. Uncached prompt tokens per second was lower in the shared case (median 41 versus 720) because the fixed overhead of evaluating about 30 remaining tokens dominates that small denominator; it is not a sign that shared prefill did more work. The run had 15 observations per scenario, so P95 is intentionally absent. See [raw measurements](results/raw_results.csv) and [summary statistics](results/summary.json) for request-level values, means, and medians.
 
 ## Interpretation and limitations
 
@@ -116,10 +150,10 @@ This matters when RAG requests repeat a large retrieved context, agents repeat t
 
 **Conclusion:** This Ollama 0.34.2 run showed a large cached-token count and shorter prompt evaluation for identical prefixes, consistent with cross-request KV/prefix reuse. The result establishes the behavior of this local model, runner, hardware, and warm-prefix workload; it does not establish universal performance across Ollama versions or a specific internal caching algorithm. A zero or missing cached-token count in another run should trigger an investigation of engine behavior, cache settings, prefix identity, retention, and measurement noise. Repeating the same workload under an engine with an explicit prefix-cache hit metric, such as vLLM, would provide a useful independent comparison.
 
-## Interview explanation
+## Interview explanation of the primed run
 
 “I built a controlled local inference benchmark that compares equal-sized long prompts with unique versus identical prefixes. It streams from Ollama so I can measure client TTFT, and it records server prompt/decode timings and cached-token counts. I warm the model, prime the shared context deliberately, alternate scenario order, and save per-request data so any claimed speedup is tied to evidence of prompt reuse rather than a faster warm model.”
 
 ## Five-sentence result explanation
 
-I benchmarked 30 sequential requests to a local `qwen2.5:7b` model on Ollama 0.34.2, comparing distinct roughly 2,800-token prefixes with a repeated prefix of similar length. The shared case cut median prompt evaluation from 2.534 seconds to 0.559 seconds and median TTFT from 2.653 seconds to 0.585 seconds, while median wall latency fell from 7.284 seconds to 5.529 seconds. Ollama reported a median of 2,788 cached prompt tokens for shared requests versus 22 for distinct requests, so the prefill reduction is consistent with cross-request prefix reuse in this run. This demonstrates how retaining KV state for identical prompt tokens can remove repeated prefill work while generation time remains similar. In production RAG, agent, and multi-user systems, the same mechanism can improve response latency and throughput when requests reuse a stable context.
+I benchmarked 30 sequential requests to a local `qwen2.5:7b` model on Ollama 0.34.2, comparing distinct roughly 2,800-token prefixes with a repeated prefix of similar length. The shared case cut median prompt evaluation from 3.913 seconds to 0.730 seconds and median TTFT from 4.102 seconds to 0.761 seconds, while median wall latency fell from 9.224 seconds to 4.880 seconds. Ollama reported a median of 2,786 cached prompt tokens for shared requests versus 21 for distinct requests, so the prefill reduction is consistent with cross-request prefix reuse in this run. This demonstrates how retaining KV state for identical prompt tokens can remove repeated prefill work, while output length and generation time also affect total latency. In production RAG, agent, and multi-user systems, the same mechanism can improve response latency and throughput when requests reuse a stable context.

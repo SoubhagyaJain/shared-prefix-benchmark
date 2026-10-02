@@ -13,7 +13,8 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
-from chart import save_sweep_chart
+from breakeven import summarize_break_even
+from chart import save_break_even_chart, save_sweep_chart
 from config import Config
 from metrics import summarize, summarize_sweep
 from prompts import make_prefix, prompt
@@ -182,6 +183,9 @@ def parse_args(argv=None):
     parser.add_argument("--requests", type=int, default=defaults.requests_per_trial)
     parser.add_argument("--prefix-lines", type=int, default=defaults.prefix_lines)
     parser.add_argument("--sweep", action="store_true", help="run all configured prefix lengths")
+    parser.add_argument("--break-even", action="store_true", help="measure cold-prefix reuse break-even")
+    parser.add_argument("--max-requests", type=int,
+                        help="maximum requests per scenario per trial; implies --break-even (default: 8)")
     parser.add_argument("--prefix-lengths", type=parse_prefix_lengths,
                         help="comma-separated sweep lengths (default: 20,40,80,105,160,220); implies --sweep")
     parser.add_argument("--max-output-tokens", type=int, default=defaults.max_output_tokens)
@@ -189,23 +193,137 @@ def parse_args(argv=None):
     parser.add_argument("--timeout", type=int, default=defaults.timeout_s)
     parser.add_argument("--csv", help="request-level CSV output path")
     parser.add_argument("--summary", help="JSON summary output path")
-    parser.add_argument("--chart", default=defaults.chart_svg, help="sweep SVG chart output path")
+    parser.add_argument("--cumulative-csv", help="break-even cumulative CSV output path")
+    parser.add_argument("--chart", help="SVG chart output path")
     args = parser.parse_args(argv)
     if min(args.trials, args.requests, args.prefix_lines, args.max_output_tokens, args.num_ctx, args.timeout) <= 0:
         parser.error("counts and context size must be positive")
     sweep = args.sweep or args.prefix_lengths is not None
+    break_even = args.break_even or args.max_requests is not None
+    if sweep and break_even:
+        parser.error("--sweep/--prefix-lengths and --break-even/--max-requests cannot be combined")
+    if args.max_requests is not None and args.max_requests <= 0:
+        parser.error("--max-requests must be positive")
+    if break_even:
+        default_csv = "results/breakeven_raw_results.csv"
+        default_summary = "results/breakeven_summary.json"
+        default_chart = "results/breakeven_chart.svg"
+    elif sweep:
+        default_csv = "results/sweep_raw_results.csv"
+        default_summary = "results/sweep_summary.json"
+        default_chart = defaults.chart_svg
+    else:
+        default_csv = defaults.raw_csv
+        default_summary = defaults.summary_json
+        default_chart = defaults.chart_svg
     return Config(url=args.url.rstrip("/"), model=args.model, trials=args.trials,
                   requests_per_trial=args.requests, prefix_lines=args.prefix_lines,
                   max_output_tokens=args.max_output_tokens, context_window=args.num_ctx,
                   timeout_s=args.timeout,
-                  raw_csv=args.csv or ("results/sweep_raw_results.csv" if sweep else defaults.raw_csv),
-                  summary_json=args.summary or ("results/sweep_summary.json" if sweep else defaults.summary_json),
+                  raw_csv=args.csv or default_csv,
+                  summary_json=args.summary or default_summary,
                   sweep=sweep, prefix_lengths=args.prefix_lengths or defaults.prefix_lengths,
-                  chart_svg=args.chart)
+                  chart_svg=args.chart or default_chart,
+                  break_even=break_even,
+                  max_requests_per_trial=args.max_requests or defaults.max_requests_per_trial,
+                  cumulative_csv=args.cumulative_csv or defaults.cumulative_csv)
+
+
+def run_break_even(config: Config) -> int:
+    run_id = secrets.token_hex(12)
+    version = get_version(config)
+    if version is None:
+        print(f"Ollama is unavailable at {config.url}; start Ollama first.", file=sys.stderr)
+        return 1
+    print(f"Ollama {version}; model {config.model}; sequential cold-prefix trials")
+    started = datetime.now(timezone.utc).isoformat()
+    rows = []
+    csv_path = Path(config.raw_csv)
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
+    with csv_path.open("w", newline="", encoding="utf-8") as csv_file:
+        writer = csv.DictWriter(csv_file, fieldnames=[*CSV_FIELDS, "prefix_state"])
+        writer.writeheader()
+        csv_file.flush()
+        for trial in range(1, config.trials + 1):
+            # Load and warm the model with unrelated text before either measured sequence.
+            for index in range(2):
+                stream_generate(config, f"Trial warm-up {run_id}-{trial}-{index}: Say hello briefly.")
+            warmup = stream_generate(
+                config, prompt(make_prefix(f"warmup-{run_id}-{trial:03d}", config.prefix_lines), 999)
+            )
+            verify_context(warmup["prompt_tokens"], config, f"trial {trial} warm-up", reserve=256)
+
+            shared = make_prefix(f"shared-{run_id}-{trial:03d}-000", config.prefix_lines)
+            order = ("different_prefix", "shared_prefix") if trial % 2 else ("shared_prefix", "different_prefix")
+            for scenario in order:
+                for index in range(1, config.max_requests_per_trial + 1):
+                    if scenario == "shared_prefix":
+                        prefix = shared
+                        state = "cold" if index == 1 else "warm"
+                    else:
+                        prefix = make_prefix(f"unique-{run_id}-{trial:03d}-{index:03d}", config.prefix_lines)
+                        state = "new"
+                    result = measured_request(config, prompt(prefix, index))
+                    verify_context(result["prompt_tokens"], config,
+                                   f"trial {trial} {scenario} request {index}", reserve=256)
+                    row = {"run_id": run_id, "prefix_lines": config.prefix_lines,
+                           "scenario": scenario, "trial": trial, "request_index": index,
+                           "prefix_state": state, **result}
+                    rows.append(row)
+                    writer.writerow(row)
+                    csv_file.flush()
+                    print(f"trial={trial} {scenario} request={index} state={state} "
+                          f"tokens={result['prompt_tokens']} cached={result['cached_prompt_tokens']} "
+                          f"prefill={fmt(result['prefill_s'], 's')} wall={fmt(result['wall_latency_s'], 's')}",
+                          flush=True)
+
+    cumulative = summarize_break_even(rows, config.trials, config.max_requests_per_trial)
+    cumulative_path = Path(config.cumulative_csv)
+    cumulative_path.parent.mkdir(parents=True, exist_ok=True)
+    points = [*cumulative["per_trial_curves"], *cumulative["by_request_count"].values()]
+    fields = list(dict.fromkeys(key for point in points for key in point))
+    with cumulative_path.open("w", newline="", encoding="utf-8") as csv_file:
+        writer = csv.DictWriter(csv_file, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows(points)
+
+    summary = {
+        "started_utc": started,
+        "run_id": run_id,
+        "finished_utc": datetime.now(timezone.utc).isoformat(),
+        "ollama_version": version,
+        "model": config.model,
+        "system": platform.platform(),
+        "settings": {"trials": config.trials, "max_requests_per_trial": config.max_requests_per_trial,
+                     "prefix_lines": config.prefix_lines, "temperature": config.temperature,
+                     "max_output_tokens": config.max_output_tokens, "num_ctx": config.context_window,
+                     "concurrency": 1, "raw_prompt": True},
+        "notes": [
+            "Cold means an unseen prefix with an already loaded and warmed model; each trial has unrelated unmeasured model warm-ups.",
+            "The first shared-prefix request is measured without priming. Later shared requests use distinct questions on that prefix.",
+            "Distinct-prefix requests use new similarly sized reference sets at each index.",
+            "Scenario order alternates by trial. All measured requests are sequential and streamed.",
+            "Break-even is the first N with strictly lower mean cumulative shared time than distinct time; priming and warm-up are excluded from cumulative totals.",
+            "Prompt counts are reported by Ollama and checked with room for max output tokens plus a 256-token reserve.",
+        ],
+        **cumulative,
+    }
+    summary_path = Path(config.summary_json)
+    summary_path.parent.mkdir(parents=True, exist_ok=True)
+    summary_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    save_break_even_chart(cumulative["by_request_count"], config.chart_svg)
+    for label, key in (("Wall-latency", "wall_first_n"), ("Prompt-evaluation", "prompt_eval_first_n")):
+        point = cumulative["break_even"][key]
+        print(f"{label} break-even: N={point}" if point is not None else
+              f"{label} break-even: not reached through N={config.max_requests_per_trial}")
+    print(f"Saved {csv_path}, {cumulative_path}, {summary_path}, and {config.chart_svg}")
+    return 0
 
 
 def main() -> int:
     config = parse_args()
+    if config.break_even:
+        return run_break_even(config)
     lengths = config.prefix_lengths if config.sweep else (config.prefix_lines,)
     run_id = secrets.token_hex(12)
     version = get_version(config)
