@@ -36,6 +36,8 @@ The full sweep tests 20, 40, 80, 105, 160, and 220 reference lines, with three t
 
 Each CSV row contains the configured line count and Ollama's actual prompt token count. A distinct longest-length warm-up checks the context budget, and the runner checks every priming and measured prompt count plus `--max-output-tokens` and a 256-token reserve against `--num-ctx`. The JSON groups mean and median cached tokens, uncached tokens, prompt evaluation, TTFT, generation, wall latency, and per-request throughput by length and scenario. It also gives total measured request throughput (requests divided by summed wall time) and percentage improvements. Positive timing improvements mean the shared case was faster; positive throughput improvements mean it served more requests per second. The chart plots median TTFT and prompt evaluation against line count. Compare the actual token counts before attributing a timing gap to prefix reuse. **The reported workload uses a warm prefix:** priming requests are excluded from measured results and throughput.
 
+![Prefix-length sweep chart from the two-length smoke run](results/sweep_chart.svg)
+
 ## Experiment
 
 | Control | Value |
