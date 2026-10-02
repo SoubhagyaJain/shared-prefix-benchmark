@@ -4,9 +4,10 @@ import contextlib
 import io
 import unittest
 
-from benchmark import parse_args, verify_context
+from benchmark import parse_args, sweep_length_order, verify_context
 from config import Config
 from metrics import summarize_sweep
+from prompts import make_token_sweep_prefix, token_sweep_prompt
 
 
 class SweepArgumentsTest(unittest.TestCase):
@@ -19,9 +20,10 @@ class SweepArgumentsTest(unittest.TestCase):
 
     def test_sweep_defaults_and_custom_lengths(self):
         config = parse_args(["--sweep"])
-        self.assertEqual(config.prefix_lengths, (20, 40, 80, 105, 160, 220))
-        self.assertEqual(config.raw_csv, "results/sweep_raw_results.csv")
-        self.assertEqual(config.summary_json, "results/sweep_summary.json")
+        self.assertEqual(config.prefix_lengths, (256, 512, 1024, 2048, 4096, 6144))
+        self.assertEqual(config.max_output_tokens, 16)
+        self.assertIn("token_sweep_", config.raw_csv)
+        self.assertIn("token_sweep_", config.summary_json)
         custom = parse_args(["--prefix-lengths", "12, 24", "--csv", "custom.csv"])
         self.assertTrue(custom.sweep)
         self.assertEqual(custom.prefix_lengths, (12, 24))
@@ -40,6 +42,16 @@ class SweepArgumentsTest(unittest.TestCase):
             verify_context(81, config, "test")
         with self.assertRaisesRegex(RuntimeError, "exceeds num_ctx"):
             verify_context(80, config, "test", reserve=1)
+
+    def test_counterbalanced_order_and_distinct_prompts(self):
+        lengths = (256, 512, 1024, 2048, 4096, 6144)
+        self.assertEqual(sweep_length_order(lengths, 1), lengths)
+        self.assertEqual(sweep_length_order(lengths, 2), (1024, 2048, 4096, 6144, 256, 512))
+        self.assertEqual(sweep_length_order(lengths, 3), (4096, 6144, 256, 512, 1024, 2048))
+        a = make_token_sweep_prefix("a", 8)
+        self.assertEqual(a, make_token_sweep_prefix("a", 8))
+        self.assertNotEqual(a, make_token_sweep_prefix("b", 8))
+        self.assertEqual(len({token_sweep_prompt(a, i) for i in range(1, 6)}), 5)
 
 
 class SweepAggregationTest(unittest.TestCase):
@@ -65,6 +77,28 @@ class SweepAggregationTest(unittest.TestCase):
         self.assertEqual(result["20"]["different_prefix"]["aggregate_request_throughput_per_s"], 2/10)
         self.assertEqual(result["20"]["improvement_percent"]["ttft_s"]["median"], 60)
         self.assertEqual(result["40"]["improvement_percent"]["ttft_s"]["median"], 50)
+
+    def test_cache_evidence_and_flagged_rows_are_retained(self):
+        rows = []
+        for scenario, cached_values in (("different_prefix", (0, 0)),
+                                        ("shared_prefix", (180, 0))):
+            for cached in cached_values:
+                rows.append({
+                    "prefix_target_tokens": 256, "scenario": scenario,
+                    "prompt_tokens": 280, "cached_prompt_tokens": cached,
+                    "uncached_prompt_tokens": 280 - cached,
+                    "cached_fraction": cached / 280,
+                    "output_tokens": 16, "short_output": False,
+                    "cache_shortfall": scenario == "shared_prefix" and cached == 0,
+                    "cache_drop_within_block": scenario == "shared_prefix" and cached == 0,
+                    "prefill_s": 1, "ttft_s": 1.1, "generation_s": .2,
+                    "wall_latency_s": 1.3,
+                })
+        result = summarize_sweep(rows, (256,))["256"]
+        self.assertEqual(result["shared_prefix"]["prompt_tokens"]["count"], 2)
+        self.assertEqual(result["shared_prefix"]["cache_shortfall_count"], 1)
+        self.assertEqual(result["shared_prefix"]["cache_drop_count"], 1)
+        self.assertFalse(result["cache_evidence"]["supports_prefix_reuse"])
 
 
 if __name__ == "__main__":

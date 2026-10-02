@@ -10,6 +10,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -17,7 +18,7 @@ from breakeven import summarize_break_even
 from chart import save_break_even_chart, save_sweep_chart
 from config import Config
 from metrics import summarize, summarize_sweep
-from prompts import make_prefix, prompt
+from prompts import make_prefix, make_token_sweep_prefix, prompt, token_sweep_prompt
 
 
 CSV_FIELDS = [
@@ -26,6 +27,11 @@ CSV_FIELDS = [
     "output_tokens", "ttft_s", "prefill_s", "generation_s", "api_total_s",
     "wall_latency_s", "prompt_tokens_per_s", "generation_tokens_per_s",
     "gpu_memory_mib", "load_s", "done_reason",
+]
+
+SWEEP_FIELDS = [
+    *CSV_FIELDS, "prefix_target_tokens", "calibrated_prefix_tokens", "condition_order",
+    "cached_fraction", "cache_shortfall", "cache_drop_within_block", "short_output",
 ]
 
 
@@ -187,8 +193,9 @@ def parse_args(argv=None):
     parser.add_argument("--max-requests", type=int,
                         help="maximum requests per scenario per trial; implies --break-even (default: 8)")
     parser.add_argument("--prefix-lengths", type=parse_prefix_lengths,
-                        help="comma-separated sweep lengths (default: 20,40,80,105,160,220); implies --sweep")
-    parser.add_argument("--max-output-tokens", type=int, default=defaults.max_output_tokens)
+                        help="comma-separated approximate prefix token targets (default: 256,512,1024,2048,4096,6144); implies --sweep")
+    parser.add_argument("--max-output-tokens", type=int,
+                        help="num_predict (default: 16 for sweep, 80 otherwise)")
     parser.add_argument("--num-ctx", type=int, default=defaults.context_window)
     parser.add_argument("--timeout", type=int, default=defaults.timeout_s)
     parser.add_argument("--csv", help="request-level CSV output path")
@@ -196,7 +203,8 @@ def parse_args(argv=None):
     parser.add_argument("--cumulative-csv", help="break-even cumulative CSV output path")
     parser.add_argument("--chart", help="SVG chart output path")
     args = parser.parse_args(argv)
-    if min(args.trials, args.requests, args.prefix_lines, args.max_output_tokens, args.num_ctx, args.timeout) <= 0:
+    max_output_tokens = args.max_output_tokens if args.max_output_tokens is not None else (16 if args.sweep or args.prefix_lengths else defaults.max_output_tokens)
+    if min(args.trials, args.requests, args.prefix_lines, max_output_tokens, args.num_ctx, args.timeout) <= 0:
         parser.error("counts and context size must be positive")
     sweep = args.sweep or args.prefix_lengths is not None
     break_even = args.break_even or args.max_requests is not None
@@ -209,16 +217,17 @@ def parse_args(argv=None):
         default_summary = "results/breakeven_summary.json"
         default_chart = "results/breakeven_chart.svg"
     elif sweep:
-        default_csv = "results/sweep_raw_results.csv"
-        default_summary = "results/sweep_summary.json"
-        default_chart = defaults.chart_svg
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "_" + secrets.token_hex(3)
+        default_csv = f"results/token_sweep_{stamp}_requests.csv"
+        default_summary = f"results/token_sweep_{stamp}_summary.json"
+        default_chart = f"results/token_sweep_{stamp}_chart.svg"
     else:
         default_csv = defaults.raw_csv
         default_summary = defaults.summary_json
         default_chart = defaults.chart_svg
     return Config(url=args.url.rstrip("/"), model=args.model, trials=args.trials,
                   requests_per_trial=args.requests, prefix_lines=args.prefix_lines,
-                  max_output_tokens=args.max_output_tokens, context_window=args.num_ctx,
+                  max_output_tokens=max_output_tokens, context_window=args.num_ctx,
                   timeout_s=args.timeout,
                   raw_csv=args.csv or default_csv,
                   summary_json=args.summary or default_summary,
@@ -227,6 +236,162 @@ def parse_args(argv=None):
                   break_even=break_even,
                   max_requests_per_trial=args.max_requests or defaults.max_requests_per_trial,
                   cumulative_csv=args.cumulative_csv or defaults.cumulative_csv)
+
+
+def sweep_length_order(lengths: tuple[int, ...], trial: int) -> tuple[int, ...]:
+    """Three-trial default places each length in early, middle, and late thirds."""
+    offset = (2 * (trial - 1)) % len(lengths)
+    return lengths[offset:] + lengths[:offset]
+
+
+def calibrate_token_sweep(config: Config, lengths: tuple[int, ...], run_id: str) -> dict:
+    """Use only calibration identities; never send a measured prefix to calibration."""
+    probe_config = replace(config, max_output_tokens=1)
+    question_tokens = stream_generate(probe_config, token_sweep_prompt("", 1))["prompt_tokens"]
+    verify_context(question_tokens, probe_config, "question calibration")
+    anchor_lines = 12
+    anchor = stream_generate(probe_config, token_sweep_prompt(
+        make_token_sweep_prefix(f"calibration-{run_id}-anchor", anchor_lines), 1))
+    verify_context(anchor["prompt_tokens"], config, "anchor calibration", reserve=256)
+    tokens_per_line = max(1, (anchor["prompt_tokens"] - question_tokens) / anchor_lines)
+    shapes = {}
+    for target in lengths:
+        lines = max(1, round(target / tokens_per_line))
+        observed = None
+        for attempt in range(6):
+            calibration_prefix = make_token_sweep_prefix(
+                f"calibration-{run_id}-{target}-{attempt}", lines)
+            probe = stream_generate(probe_config, token_sweep_prompt(calibration_prefix, 1))
+            verify_context(probe["prompt_tokens"], config, f"{target}-token calibration", reserve=256)
+            observed = probe["prompt_tokens"] - question_tokens
+            tolerance = max(16, round(target * 0.015))
+            if abs(observed - target) <= tolerance or attempt == 5:
+                break
+            step = round((target - observed) / tokens_per_line)
+            lines = max(1, lines + (step if step else (1 if observed < target else -1)))
+        if abs(observed - target) > max(16, round(target * 0.03)):
+            raise RuntimeError(f"Could not calibrate {target}-token prefix: observed {observed}")
+        shapes[target] = {"lines": lines, "estimated_prefix_tokens": observed}
+        print(f"calibrated target={target} prefix~{observed} tokens with {lines} lines", flush=True)
+    return shapes
+
+
+def run_token_sweep(config: Config) -> int:
+    lengths = config.prefix_lengths
+    run_id = secrets.token_hex(12)
+    version = get_version(config)
+    if version is None:
+        print(f"Ollama is unavailable at {config.url}; start Ollama first.", file=sys.stderr)
+        return 1
+    for path in (config.raw_csv, config.summary_json, config.chart_svg):
+        if Path(path).exists():
+            raise FileExistsError(f"Refusing to overwrite existing sweep result: {path}")
+    print(f"Ollama {version}; model {config.model}; sequential token-target sweep", flush=True)
+    started = datetime.now(timezone.utc).isoformat()
+    for index in range(2):
+        stream_generate(config, f"Sweep warm-up {run_id}-{index}: Say hello briefly.")
+    shapes = calibrate_token_sweep(config, lengths, run_id)
+    rows = []
+    seen_prefixes = set()
+    csv_path = Path(config.raw_csv)
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
+    with csv_path.open("x", newline="", encoding="utf-8") as csv_file:
+        writer = csv.DictWriter(csv_file, fieldnames=SWEEP_FIELDS)
+        writer.writeheader()
+        csv_file.flush()
+        for trial in range(1, config.trials + 1):
+            for length in sweep_length_order(lengths, trial):
+                position = lengths.index(length)
+                order = (("different_prefix", "shared_prefix") if (trial + position) % 2
+                         else ("shared_prefix", "different_prefix"))
+                shape = shapes[length]
+                shared = make_token_sweep_prefix(
+                    f"measured-shared-{run_id}-{length}-{trial}", shape["lines"])
+                if shared in seen_prefixes:
+                    raise RuntimeError("Generated a duplicate measured prefix")
+                seen_prefixes.add(shared)
+                for condition_order, scenario in enumerate(order, 1):
+                    if scenario == "shared_prefix":
+                        prime = stream_generate(config, token_sweep_prompt(shared, 0))
+                        verify_context(prime["prompt_tokens"], config,
+                                       f"{length}-token trial {trial} prime", reserve=256)
+                    prior_cached_max = None
+                    for index in range(1, config.requests_per_trial + 1):
+                        if scenario == "shared_prefix":
+                            prefix = shared
+                        else:
+                            prefix = make_token_sweep_prefix(
+                                f"measured-different-{run_id}-{length}-{trial}-{index}",
+                                shape["lines"])
+                            if prefix in seen_prefixes:
+                                raise RuntimeError("Generated a duplicate measured prefix")
+                            seen_prefixes.add(prefix)
+                        result = measured_request(config, token_sweep_prompt(prefix, index))
+                        verify_context(result["prompt_tokens"], config,
+                                       f"{length}-token {scenario} trial {trial} request {index}", reserve=256)
+                        count = result["prompt_tokens"]
+                        cached = result["cached_prompt_tokens"]
+                        fraction = cached / count if cached is not None else None
+                        short_output = (result["output_tokens"] < config.max_output_tokens
+                                        if result["output_tokens"] is not None else None)
+                        shortfall = (cached < 0.5 * shape["estimated_prefix_tokens"]
+                                     if scenario == "shared_prefix" and cached is not None else None)
+                        drop = (cached < 0.7 * prior_cached_max
+                                if scenario == "shared_prefix" and cached is not None
+                                and prior_cached_max is not None else False)
+                        if scenario == "shared_prefix" and cached is not None:
+                            prior_cached_max = max(prior_cached_max or 0, cached)
+                        row = {
+                            "run_id": run_id, "prefix_lines": shape["lines"],
+                            "prefix_target_tokens": length,
+                            "calibrated_prefix_tokens": shape["estimated_prefix_tokens"],
+                            "scenario": scenario, "condition_order": condition_order,
+                            "trial": trial, "request_index": index,
+                            "cached_fraction": fraction, "cache_shortfall": shortfall,
+                            "cache_drop_within_block": drop, "short_output": short_output,
+                            **result,
+                        }
+                        rows.append(row)
+                        writer.writerow(row)
+                        csv_file.flush()
+                        print(f"target={length} trial={trial} {scenario} request={index} "
+                              f"input={count} output={result['output_tokens']} cached={cached} "
+                              f"eval={fmt(result['prefill_s'], 's')} ttft={fmt(result['ttft_s'], 's')} "
+                              f"short={short_output} cache_shortfall={shortfall} cache_drop={drop}", flush=True)
+    stats = summarize_sweep(rows, lengths)
+    summary = {
+        "started_utc": started, "finished_utc": datetime.now(timezone.utc).isoformat(),
+        "run_id": run_id, "ollama_version": version, "model": config.model,
+        "system": platform.platform(),
+        "settings": {
+            "prefix_targets": list(lengths), "trials": config.trials,
+            "requests_per_trial": config.requests_per_trial,
+            "measured_requests": len(rows), "temperature": config.temperature,
+            "num_predict": config.max_output_tokens, "num_ctx": config.context_window,
+            "raw": True, "stream": True, "concurrency": 1,
+            "length_order_by_trial": {
+                str(trial): list(sweep_length_order(lengths, trial))
+                for trial in range(1, config.trials + 1)
+            },
+        },
+        "calibration": shapes,
+        "notes": [
+            "Calibration uses unrelated, unmeasured prompt identities with one output token; measured prefixes are never sent during calibration.",
+            f"Each trial has a fresh shared prefix, primed once immediately before {config.requests_per_trial} consecutive measured requests.",
+            "All short outputs and cache shortfalls/drops remain in the statistics; priming and calibration are excluded.",
+            "Cache shortfall means fewer than half the calibrated prefix tokens were reported cached; cache drop means a >30% fall from an earlier request in the same block.",
+            "Timing improvements are descriptive; only cached-token counts can support an inference of prefix reuse.",
+            "Prompt count plus num_predict and 256-token reserve is checked for every calibration, prime and measured request.",
+        ],
+        "statistics": stats,
+    }
+    summary_path = Path(config.summary_json)
+    summary_path.parent.mkdir(parents=True, exist_ok=True)
+    with summary_path.open("x", encoding="utf-8") as output:
+        json.dump(summary, output, indent=2)
+    save_sweep_chart(stats, lengths, config.chart_svg)
+    print(f"Saved {csv_path}, {summary_path}, and {config.chart_svg}")
+    return 0
 
 
 def run_break_even(config: Config) -> int:
@@ -324,7 +489,9 @@ def main() -> int:
     config = parse_args()
     if config.break_even:
         return run_break_even(config)
-    lengths = config.prefix_lengths if config.sweep else (config.prefix_lines,)
+    if config.sweep:
+        return run_token_sweep(config)
+    lengths = (config.prefix_lines,)
     run_id = secrets.token_hex(12)
     version = get_version(config)
     if version is None:
@@ -374,7 +541,7 @@ def main() -> int:
                               f"tokens={result['prompt_tokens']} cached={result['cached_prompt_tokens']} "
                               f"prefill={fmt(result['prefill_s'], 's')} wall={fmt(result['wall_latency_s'], 's')}", flush=True)
 
-    stats = summarize_sweep(rows, lengths) if config.sweep else summarize(rows)
+    stats = summarize(rows)
     summary_path = Path(config.summary_json)
     summary_path.parent.mkdir(parents=True, exist_ok=True)
     summary = {
@@ -385,7 +552,7 @@ def main() -> int:
         "model": config.model,
         "system": platform.platform(),
         "settings": {"trials": config.trials, "requests_per_trial": config.requests_per_trial,
-                     **({"prefix_lengths": list(lengths)} if config.sweep else {"prefix_lines": config.prefix_lines}),
+                     "prefix_lines": config.prefix_lines,
                      "temperature": config.temperature,
                      "max_output_tokens": config.max_output_tokens, "num_ctx": config.context_window,
                      "concurrency": 1, "raw_prompt": True},
@@ -397,16 +564,8 @@ def main() -> int:
         "statistics": stats,
     }
     summary_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
-    if config.sweep:
-        save_sweep_chart(stats, lengths, config.chart_svg)
-        for length in lengths:
-            gain = stats[str(length)]["improvement_percent"]
-            print(f"{length} lines: median TTFT {fmt(gain['ttft_s']['median'], '%')} improvement; "
-                  f"median prompt eval {fmt(gain['prefill_s']['median'], '%')} improvement")
-        print(f"\nSaved {csv_path}, {summary_path}, and {config.chart_svg}")
-    else:
-        print_summary(stats)
-        print(f"\nSaved {csv_path} and {summary_path}")
+    print_summary(stats)
+    print(f"\nSaved {csv_path} and {summary_path}")
     return 0
 
 
