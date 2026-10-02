@@ -59,3 +59,58 @@ def save_sweep_chart(statistics: dict, prefix_lengths: tuple[int, ...], path: st
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text("\n".join(parts), encoding="utf-8")
+
+
+def save_break_even_chart(by_request_count: dict, path: str) -> None:
+    """Plot mean paired cumulative wall and prompt-evaluation times."""
+    counts = sorted(int(key) for key in by_request_count)
+    width, height = 900, 630
+    left, right = 80, 850
+    colors = {"distinct": "#d97706", "shared": "#2563eb"}
+    parts = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" role="img" '
+        'aria-label="Cumulative time by reused request count">',
+        '<rect width="100%" height="100%" fill="white"/>',
+        '<style>text{font:14px Arial,sans-serif;fill:#1f2937}.title{font-size:22px;font-weight:bold}'
+        '.panel{font-size:17px;font-weight:bold}.axis{stroke:#9ca3af;stroke-width:1}'
+        '.grid{stroke:#e5e7eb;stroke-width:1}</style>',
+        '<text x="80" y="38" class="title">Cold-prefix break-even: cumulative time</text>',
+    ]
+    for scenario, label, x in (("distinct", "Distinct prefixes", 510), ("shared", "Shared prefix", 700)):
+        parts.append(f'<line x1="{x}" y1="55" x2="{x + 28}" y2="55" stroke="{colors[scenario]}" stroke-width="3"/>')
+        parts.append(f'<text x="{x + 35}" y="60">{label}</text>')
+
+    for panel_index, (metric, title) in enumerate((("wall", "Wall latency"), ("prompt_eval", "Prompt evaluation"))):
+        top = 112 + panel_index * 265
+        bottom = top + 190
+        values = [
+            by_request_count[str(n)][f"cumulative_{metric}_{scenario}_s"]
+            for n in counts for scenario in colors
+        ]
+        ymax = max(values) * 1.15 or 1
+        parts.append(f'<text x="80" y="{top - 20}" class="panel">{title} (seconds)</text>')
+        for tick in range(5):
+            y = bottom - tick * (bottom - top) / 4
+            parts.append(f'<line x1="{left}" y1="{y:.1f}" x2="{right}" y2="{y:.1f}" class="grid"/>')
+            parts.append(f'<text x="70" y="{y + 5:.1f}" text-anchor="end">{ymax * tick / 4:.1f}</text>')
+        parts.append(f'<line x1="{left}" y1="{top}" x2="{left}" y2="{bottom}" class="axis"/>')
+        parts.append(f'<line x1="{left}" y1="{bottom}" x2="{right}" y2="{bottom}" class="axis"/>')
+        for n in counts:
+            x = left + (n - counts[0]) / (counts[-1] - counts[0]) * (right - left) if len(counts) > 1 else (left + right) / 2
+            parts.append(f'<text x="{x:.1f}" y="{bottom + 21}" text-anchor="middle">{n}</text>')
+        for scenario, color in colors.items():
+            points = []
+            for n in counts:
+                x = left + (n - counts[0]) / (counts[-1] - counts[0]) * (right - left) if len(counts) > 1 else (left + right) / 2
+                value = by_request_count[str(n)][f"cumulative_{metric}_{scenario}_s"]
+                y = bottom - value / ymax * (bottom - top)
+                points.append((x, y))
+            if len(points) > 1:
+                coords = " ".join(f"{x:.1f},{y:.1f}" for x, y in points)
+                parts.append(f'<polyline points="{coords}" fill="none" stroke="{color}" stroke-width="3"/>')
+            for x, y in points:
+                parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="4" fill="{color}"/>')
+    parts.append('<text x="450" y="615" text-anchor="middle">Requests per trial (N)</text></svg>')
+    destination = Path(path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_text("\n".join(parts), encoding="utf-8")

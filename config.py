@@ -20,3 +20,6 @@ class Config:
     sweep: bool = False
     prefix_lengths: tuple[int, ...] = (20, 40, 80, 105, 160, 220)
     chart_svg: str = "results/sweep_chart.svg"
+    break_even: bool = False
+    max_requests_per_trial: int = 8
+    cumulative_csv: str = "results/breakeven_cumulative.csv"
