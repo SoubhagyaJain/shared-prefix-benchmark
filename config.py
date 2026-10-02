@@ -18,7 +18,7 @@ class Config:
     raw_csv: str = "results/raw_results.csv"
     summary_json: str = "results/summary.json"
     sweep: bool = False
-    prefix_lengths: tuple[int, ...] = (20, 40, 80, 105, 160, 220)
+    prefix_lengths: tuple[int, ...] = (256, 512, 1024, 2048, 4096, 6144)
     chart_svg: str = "results/sweep_chart.svg"
     break_even: bool = False
     max_requests_per_trial: int = 8

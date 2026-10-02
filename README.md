@@ -26,23 +26,60 @@ No `pip install` is required; Python's standard library is sufficient. The defau
 | Mode | Command | What it measures |
 | --- | --- | --- |
 | Primed single length | `python benchmark.py` | Repeated use of one explicitly primed prefix at 105 lines |
-| Primed length sweep | `python benchmark.py --sweep` | Repeated use across six prefix lengths |
+| Primed token-length sweep | `python benchmark.py --sweep` | Repeated use near six input-prefix token targets |
 | Cold-prefix break-even | `python benchmark.py --break-even --max-requests 8` | First unprimed request plus subsequent reuse, compared with distinct prefixes |
 
 ## Prefix-length sweep
 
-Run a short smoke sweep, then the full default sweep:
+Run the full experiment with:
 
 ```powershell
-python benchmark.py --sweep --prefix-lengths 20,40 --trials 1 --requests 1 --max-output-tokens 16
 python benchmark.py --sweep
 ```
 
-The full sweep tests 20, 40, 80, 105, 160, and 220 reference lines, with three trials and five measured requests per scenario at each length. Use `--prefix-lengths 20,80,160` to choose other lengths; it also enables sweep mode. The sweep writes [request rows](results/sweep_raw_results.csv), [per-length statistics](results/sweep_summary.json), and an [SVG chart](results/sweep_chart.svg). These are separate from the existing single-length `results/raw_results.csv` and `results/summary.json`. Override paths with `--csv`, `--summary`, and `--chart`.
+The defaults are approximate **input-prefix** targets of 256, 512, 1,024, 2,048, 4,096, and 6,144 tokens, with 3 trials × 5 measured requests for both `shared_prefix` and `different_prefix` at every length: 180 measured requests. `num_predict=16`, temperature 0, `num_ctx=8192`, `raw=true`, streaming, and sequential requests are fixed for this run. Use `--prefix-lengths 256,512` to select targets for a shorter run. `--trials`, `--requests`, `--max-output-tokens`, and `--num-ctx` can also override defaults.
 
-Each CSV row contains the configured line count and Ollama's actual prompt token count. A distinct longest-length warm-up checks the context budget, and the runner checks every priming and measured prompt count plus `--max-output-tokens` and a 256-token reserve against `--num-ctx`. The JSON groups mean and median cached tokens, uncached tokens, prompt evaluation, TTFT, generation, wall latency, and per-request throughput by length and scenario. It also gives total measured request throughput (requests divided by summed wall time) and percentage improvements. Positive timing improvements mean the shared case was faster; positive throughput improvements mean it served more requests per second. The chart plots median TTFT and prompt evaluation against line count. Compare the actual token counts before attributing a timing gap to prefix reuse. **The reported workload uses a warm prefix:** priming requests are excluded from measured results and throughput.
+The prefix generator uses a deterministic permutation of the same record vocabulary for every identity. An unrelated, unmeasured calibration identity determines the line count for each target from Ollama's actual `prompt_eval_count`; calibration never sends a measured prefix. Prompt token counts in the CSV include the short question as well as the prefix. The runner checks each calibrated, priming, and measured prompt against `num_ctx`, allowing for the 16 generated tokens and an additional 256-token reserve. The largest calibration is near 6,144 prefix tokens, leaving room for the question and generation in the 8,192-token context.
 
-![Prefix-length sweep chart from the two-length smoke run](results/sweep_chart.svg)
+Each trial creates a fresh shared prefix and primes it once outside measurement, immediately followed by its five measured requests with distinct short questions. No other long request interrupts that block. Every different-prefix request has its own unique prefix and the corresponding question. Scenario order alternates across length/trial pairs; the three trial passes rotate the six lengths so every length appears in early, middle, and late positions. The model receives two short warm-ups before the sweep. The workload measures an already primed shared prefix; it does not include priming cost.
+
+Each run creates uniquely named `results/token_sweep_*_requests.csv`, `*_summary.json`, and `*_chart.svg` files. Existing results are never overwritten. The CSV retains every measured request, including short generations and cache shortfalls. `short_output` flags fewer than 16 output tokens. `cache_shortfall` flags shared observations with fewer than half the calibrated prefix tokens reported cached; `cache_drop_within_block` flags a fall of more than 30% from the prior high in that five-request block. The summary includes counts of these flags, actual input/output and cached/uncached tokens, medians and means for prompt evaluation, TTFT, wall latency, and generation, plus percentage improvements. Positive timing improvements favor the shared condition. A speedup is interpreted as prefix reuse only when `prompt_eval_cached_count` is available and substantially higher for shared requests. The SVG plots median prompt evaluation, TTFT, and shared cached-token fraction against prefix-token target.
+
+### Measured sweep, 2 October 2026
+
+The full command above completed on Ollama 0.35.0 with `qwen2.5:7b`, Windows, and a model reported by `ollama ps` as 24% CPU / 76% GPU at `num_ctx=8192`. There are 15 measured requests per condition at each length. The run lasted 12 minutes 18 seconds. The calibrated prefix counts were approximately 269, 503, 1,023, 2,037, 4,091, and 6,145 tokens, respectively; the full prompt counts below include the question. Values are medians unless a range is shown. Times are seconds.
+
+| Target | Condition | Prompt tokens (range) | Output | Cached | Uncached | Prompt eval | TTFT | Wall | Generation |
+| ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 256 | Different | 297 (296–299) | 16 | 16 | 281 | 0.565 | 0.664 | 1.616 | 0.915 |
+| 256 | Shared | 297 (296–299) | 16 | 274 | 23 | 0.473 | 0.545 | 1.440 | 0.894 |
+| 512 | Different | 531 (530–533) | 16 | 16 | 515 | 0.788 | 0.860 | 1.752 | 0.896 |
+| 512 | Shared | 531 (530–533) | 16 | 508 | 23 | 0.480 | 0.533 | 1.428 | 0.894 |
+| 1,024 | Different | 1,051 (1,050–1,053) | 16 | 16 | 1,035 | 1.648 | 1.742 | 2.664 | 0.917 |
+| 1,024 | Shared | 1,051 (1,050–1,053) | 16 | 1,028 | 23 | 0.517 | 0.572 | 1.504 | 0.922 |
+| 2,048 | Different | 2,065 (2,064–2,067) | 16 | 16 | 2,049 | 2.757 | 2.986 | 3.972 | 0.986 |
+| 2,048 | Shared | 2,065 (2,064–2,067) | 16 | 2,042 | 23 | 0.567 | 0.602 | 1.618 | 1.003 |
+| 4,096 | Different | 4,119 (4,118–4,121) | 16 | 16 | 4,102 | 5.910 | 6.248 | 7.357 | 1.133 |
+| 4,096 | Shared | 4,119 (4,118–4,121) | 16 | 4,096 | 23 | 0.732 | 0.806 | 1.955 | 1.133 |
+| 6,144 | Different | 6,173 (6,172–6,175) | 16 | 16 | 6,157 | 9.237 | 9.620 | 10.900 | 1.272 |
+| 6,144 | Shared | 6,173 (6,172–6,175) | 16 | 6,150 | 23 | 0.931 | 1.029 | 2.341 | 1.296 |
+
+| Prefix target | Shared prompt-eval improvement | Shared TTFT improvement | Shared wall improvement | Shared median cached fraction |
+| ---: | ---: | ---: | ---: | ---: |
+| 256 | 16.3% | 17.9% | 10.9% | 92.3% |
+| 512 | 39.0% | 38.1% | 18.5% | 95.7% |
+| 1,024 | 68.6% | 67.2% | 43.6% | 97.8% |
+| 2,048 | 79.5% | 79.8% | 59.3% | 98.9% |
+| 4,096 | 87.6% | 87.1% | 73.4% | 99.4% |
+| 6,144 | 89.9% | 89.3% | 78.5% | 99.6% |
+
+All 180 requests returned 16 output tokens, and Ollama supplied `prompt_eval_cached_count` for every request. The actual prompt-token distributions match exactly across the two conditions at each target. No shared observation met either cache-loss flag. The largest measured prompt was 6,175 tokens; prompt plus 16 output tokens and the 256-token reserve totaled 6,447, below `num_ctx=8192`. Different-prefix requests still reported a median of 16 cached tokens, likely from the common prompt opening; this is an inference from the shared text and API counts. The much larger shared cached counts directly support prefix reuse as the explanation for the prompt-evaluation and TTFT gaps in this run.
+
+The data and plot are [request-level CSV](results/token_sweep_20261002T034726Z_29491f_requests.csv), [summary JSON](results/token_sweep_20261002T034726Z_29491f_summary.json), and [SVG chart](results/token_sweep_20261002T034726Z_29491f_chart.svg).
+
+![Median prompt evaluation, TTFT, and cached fraction by prefix length](results/token_sweep_20261002T034726Z_29491f_chart.svg)
+
+These are warm-prefix, sequential results on one machine and one model. Priming, calibration, and model loading are outside the measured totals. Fifteen observations per condition do not establish a stable tail latency, and the three-pass rotation limits but cannot eliminate clock, thermal, and background-work effects. At 256 tokens, fixed request overhead makes the latency benefit smaller. The 16-token output cap keeps generation short; longer answers would reduce the proportion of wall time saved by prefix reuse. Cache-retention behavior under competing requests or eviction is a separate experiment.
 
 ## Cold-prefix break-even
 

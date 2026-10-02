@@ -56,16 +56,16 @@ def summarize(rows: list[dict]) -> dict:
 
 
 def summarize_sweep(rows: list[dict], prefix_lengths: tuple[int, ...]) -> dict:
-    """Keep observations separate by configured length and scenario."""
+    """Keep observations separate by configured prefix-token target and scenario."""
     fields = (
         "prompt_tokens", "cached_prompt_tokens", "uncached_prompt_tokens", "output_tokens",
-        "prefill_s", "ttft_s", "generation_s", "wall_latency_s",
+        "cached_fraction", "prefill_s", "ttft_s", "generation_s", "wall_latency_s",
         "request_throughput_per_s",
     )
     result = {}
     for length in prefix_lengths:
         groups = {
-            scenario: [row for row in rows if row["prefix_lines"] == length and row["scenario"] == scenario]
+            scenario: [row for row in rows if row.get("prefix_target_tokens", row.get("prefix_lines")) == length and row["scenario"] == scenario]
             for scenario in ("different_prefix", "shared_prefix")
         }
         stats = {}
@@ -80,6 +80,9 @@ def summarize_sweep(rows: list[dict], prefix_lengths: tuple[int, ...]) -> dict:
             stats[scenario]["aggregate_request_throughput_per_s"] = (
                 len(group) / wall_sum if wall_sum else None
             )
+            stats[scenario]["short_output_count"] = sum(bool(row.get("short_output")) for row in group)
+            stats[scenario]["cache_shortfall_count"] = sum(bool(row.get("cache_shortfall")) for row in group)
+            stats[scenario]["cache_drop_count"] = sum(bool(row.get("cache_drop_within_block")) for row in group)
         baseline = stats["different_prefix"]
         shared = stats["shared_prefix"]
         gains = {}
@@ -95,5 +98,28 @@ def summarize_sweep(rows: list[dict], prefix_lengths: tuple[int, ...]) -> dict:
             baseline["aggregate_request_throughput_per_s"],
             shared["aggregate_request_throughput_per_s"], False,
         )
-        result[str(length)] = {**stats, "improvement_percent": gains}
+        shared_rows = groups["shared_prefix"]
+        baseline_rows = groups["different_prefix"]
+        counts_available = all(row.get("cached_prompt_tokens") is not None for row in shared_rows + baseline_rows)
+        shared_fraction = shared["cached_fraction"]["median"]
+        baseline_fraction = baseline["cached_fraction"]["median"]
+        cache_supported = bool(
+            counts_available and shared_rows and baseline_rows
+            and shared_fraction is not None and baseline_fraction is not None
+            and shared_fraction >= 0.5 and shared_fraction > baseline_fraction
+        )
+        result[str(length)] = {
+            **stats, "improvement_percent": gains,
+            "cache_evidence": {
+                "counts_available": counts_available,
+                "supports_prefix_reuse": cache_supported,
+                "shared_shortfall_count": shared["cache_shortfall_count"],
+                "shared_drop_count": shared["cache_drop_count"],
+                "interpretation": (
+                    "Cached-token counts support substantial shared-prefix reuse."
+                    if cache_supported else
+                    "Timing differences alone do not establish shared-prefix reuse at this length."
+                ),
+            },
+        }
     return result

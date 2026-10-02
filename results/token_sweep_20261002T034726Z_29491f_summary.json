@@ -1,0 +1,1097 @@
+{
+  "started_utc": "2026-10-02T03:47:26.365940+00:00",
+  "finished_utc": "2026-10-02T03:59:44.481134+00:00",
+  "run_id": "b0a4fe9a0c8a147d2e8be7a0",
+  "ollama_version": "0.35.0",
+  "model": "qwen2.5:7b",
+  "system": "Windows-11-10.0.26200-SP0",
+  "settings": {
+    "prefix_targets": [
+      256,
+      512,
+      1024,
+      2048,
+      4096,
+      6144
+    ],
+    "trials": 3,
+    "requests_per_trial": 5,
+    "measured_requests": 180,
+    "temperature": 0.0,
+    "num_predict": 16,
+    "num_ctx": 8192,
+    "raw": true,
+    "stream": true,
+    "concurrency": 1,
+    "length_order_by_trial": {
+      "1": [
+        256,
+        512,
+        1024,
+        2048,
+        4096,
+        6144
+      ],
+      "2": [
+        1024,
+        2048,
+        4096,
+        6144,
+        256,
+        512
+      ],
+      "3": [
+        4096,
+        6144,
+        256,
+        512,
+        1024,
+        2048
+      ]
+    }
+  },
+  "calibration": {
+    "256": {
+      "lines": 10,
+      "estimated_prefix_tokens": 269
+    },
+    "512": {
+      "lines": 19,
+      "estimated_prefix_tokens": 503
+    },
+    "1024": {
+      "lines": 39,
+      "estimated_prefix_tokens": 1023
+    },
+    "2048": {
+      "lines": 78,
+      "estimated_prefix_tokens": 2037
+    },
+    "4096": {
+      "lines": 157,
+      "estimated_prefix_tokens": 4091
+    },
+    "6144": {
+      "lines": 236,
+      "estimated_prefix_tokens": 6145
+    }
+  },
+  "notes": [
+    "Calibration uses unrelated, unmeasured prompt identities with one output token; measured prefixes are never sent during calibration.",
+    "Each trial has a fresh shared prefix, primed once immediately before five consecutive measured requests.",
+    "All short outputs and cache shortfalls/drops remain in the statistics; priming and calibration are excluded.",
+    "Cache shortfall means fewer than half the calibrated prefix tokens were reported cached; cache drop means a >30% fall from an earlier request in the same block.",
+    "Timing improvements are descriptive; only cached-token counts can support an inference of prefix reuse.",
+    "Prompt count plus num_predict and 256-token reserve is checked for every calibration, prime and measured request."
+  ],
+  "statistics": {
+    "256": {
+      "different_prefix": {
+        "prompt_tokens": {
+          "count": 15,
+          "mean": 297.0,
+          "median": 297.0,
+          "p95": null
+        },
+        "cached_prompt_tokens": {
+          "count": 15,
+          "mean": 16.066666666666666,
+          "median": 16.0,
+          "p95": null
+        },
+        "uncached_prompt_tokens": {
+          "count": 15,
+          "mean": 280.93333333333334,
+          "median": 281.0,
+          "p95": null
+        },
+        "output_tokens": {
+          "count": 15,
+          "mean": 16.0,
+          "median": 16.0,
+          "p95": null
+        },
+        "cached_fraction": {
+          "count": 15,
+          "mean": 0.05409725119870047,
+          "median": 0.05387205387205387,
+          "p95": null
+        },
+        "prefill_s": {
+          "count": 15,
+          "mean": 0.5682838,
+          "median": 0.565284,
+          "p95": null
+        },
+        "ttft_s": {
+          "count": 15,
+          "mean": 0.7231175800000832,
+          "median": 0.6638628999999128,
+          "p95": null
+        },
+        "generation_s": {
+          "count": 15,
+          "mean": 0.9307229999333333,
+          "median": 0.914927,
+          "p95": null
+        },
+        "wall_latency_s": {
+          "count": 15,
+          "mean": 1.658942119999968,
+          "median": 1.6155280000002676,
+          "p95": null
+        },
+        "request_throughput_per_s": {
+          "count": 15,
+          "mean": 0.6080750235681115,
+          "median": 0.6189926760785541,
+          "p95": null
+        },
+        "aggregate_request_throughput_per_s": 0.6027937852346646,
+        "short_output_count": 0,
+        "cache_shortfall_count": 0,
+        "cache_drop_count": 0
+      },
+      "shared_prefix": {
+        "prompt_tokens": {
+          "count": 15,
+          "mean": 297.0,
+          "median": 297.0,
+          "p95": null
+        },
+        "cached_prompt_tokens": {
+          "count": 15,
+          "mean": 274.0,
+          "median": 274.0,
+          "p95": null
+        },
+        "uncached_prompt_tokens": {
+          "count": 15,
+          "mean": 23.0,
+          "median": 23.0,
+          "p95": null
+        },
+        "output_tokens": {
+          "count": 15,
+          "mean": 16.0,
+          "median": 16.0,
+          "p95": null
+        },
+        "cached_fraction": {
+          "count": 15,
+          "mean": 0.9225714312670834,
+          "median": 0.9225589225589226,
+          "p95": null
+        },
+        "prefill_s": {
+          "count": 15,
+          "mean": 0.4750586,
+          "median": 0.473144,
+          "p95": null
+        },
+        "ttft_s": {
+          "count": 15,
+          "mean": 0.5353906799999701,
+          "median": 0.5450964000001477,
+          "p95": null
+        },
+        "generation_s": {
+          "count": 15,
+          "mean": 0.8968502,
+          "median": 0.894251,
+          "p95": null
+        },
+        "wall_latency_s": {
+          "count": 15,
+          "mean": 1.4316260399999616,
+          "median": 1.4396840999997949,
+          "p95": null
+        },
+        "request_throughput_per_s": {
+          "count": 15,
+          "mean": 0.6992202522641079,
+          "median": 0.6945968216222868,
+          "p95": null
+        },
+        "aggregate_request_throughput_per_s": 0.6985064339846926,
+        "short_output_count": 0,
+        "cache_shortfall_count": 0,
+        "cache_drop_count": 0
+      },
+      "improvement_percent": {
+        "uncached_prompt_tokens": {
+          "median": 91.81494661921708,
+          "mean": 91.81300427147603
+        },
+        "prefill_s": {
+          "median": 16.29977144231926,
+          "mean": 16.40469075486579
+        },
+        "ttft_s": {
+          "median": 17.89021498260871,
+          "mean": 25.96077113767466
+        },
+        "generation_s": {
+          "median": 2.2598524253847603,
+          "mean": 3.6394072066296337
+        },
+        "wall_latency_s": {
+          "median": 10.88460862333823,
+          "mean": 13.702472030790974
+        },
+        "request_throughput_per_s": {
+          "median": 12.214061404199551,
+          "mean": 14.989141991257442
+        },
+        "aggregate_request_throughput_per_s": 15.878174442818363
+      },
+      "cache_evidence": {
+        "counts_available": true,
+        "supports_prefix_reuse": true,
+        "shared_shortfall_count": 0,
+        "shared_drop_count": 0,
+        "interpretation": "Cached-token counts support substantial shared-prefix reuse."
+      }
+    },
+    "512": {
+      "different_prefix": {
+        "prompt_tokens": {
+          "count": 15,
+          "mean": 531.0,
+          "median": 531.0,
+          "p95": null
+        },
+        "cached_prompt_tokens": {
+          "count": 15,
+          "mean": 16.133333333333333,
+          "median": 16.0,
+          "p95": null
+        },
+        "uncached_prompt_tokens": {
+          "count": 15,
+          "mean": 514.8666666666667,
+          "median": 515.0,
+          "p95": null
+        },
+        "output_tokens": {
+          "count": 15,
+          "mean": 16.0,
+          "median": 16.0,
+          "p95": null
+        },
+        "cached_fraction": {
+          "count": 15,
+          "mean": 0.03038305329631076,
+          "median": 0.030131826741996232,
+          "p95": null
+        },
+        "prefill_s": {
+          "count": 15,
+          "mean": 0.7773462666666666,
+          "median": 0.788041,
+          "p95": null
+        },
+        "ttft_s": {
+          "count": 15,
+          "mean": 0.8559159666667255,
+          "median": 0.8598594000004596,
+          "p95": null
+        },
+        "generation_s": {
+          "count": 15,
+          "mean": 0.8882349333333334,
+          "median": 0.895523,
+          "p95": null
+        },
+        "wall_latency_s": {
+          "count": 15,
+          "mean": 1.747010040000047,
+          "median": 1.7524094000000332,
+          "p95": null
+        },
+        "request_throughput_per_s": {
+          "count": 15,
+          "mean": 0.5735664353321696,
+          "median": 0.5706429102697013,
+          "p95": null
+        },
+        "aggregate_request_throughput_per_s": 0.5724065558317988,
+        "short_output_count": 0,
+        "cache_shortfall_count": 0,
+        "cache_drop_count": 0
+      },
+      "shared_prefix": {
+        "prompt_tokens": {
+          "count": 15,
+          "mean": 531.0,
+          "median": 531.0,
+          "p95": null
+        },
+        "cached_prompt_tokens": {
+          "count": 15,
+          "mean": 508.0,
+          "median": 508.0,
+          "p95": null
+        },
+        "uncached_prompt_tokens": {
+          "count": 15,
+          "mean": 23.0,
+          "median": 23.0,
+          "p95": null
+        },
+        "output_tokens": {
+          "count": 15,
+          "mean": 16.0,
+          "median": 16.0,
+          "p95": null
+        },
+        "cached_fraction": {
+          "count": 15,
+          "mean": 0.9566895629990468,
+          "median": 0.9566854990583804,
+          "p95": null
+        },
+        "prefill_s": {
+          "count": 15,
+          "mean": 0.47837793333333334,
+          "median": 0.480318,
+          "p95": null
+        },
+        "ttft_s": {
+          "count": 15,
+          "mean": 0.5342090666665779,
+          "median": 0.5325239999992846,
+          "p95": null
+        },
+        "generation_s": {
+          "count": 15,
+          "mean": 0.8983654666666667,
+          "median": 0.894375,
+          "p95": null
+        },
+        "wall_latency_s": {
+          "count": 15,
+          "mean": 1.4343958799998897,
+          "median": 1.4281116999991355,
+          "p95": null
+        },
+        "request_throughput_per_s": {
+          "count": 15,
+          "mean": 0.6976791818899543,
+          "median": 0.7002253395169337,
+          "p95": null
+        },
+        "aggregate_request_throughput_per_s": 0.697157607563734,
+        "short_output_count": 0,
+        "cache_shortfall_count": 0,
+        "cache_drop_count": 0
+      },
+      "improvement_percent": {
+        "uncached_prompt_tokens": {
+          "median": 95.53398058252426,
+          "mean": 95.53282403211188
+        },
+        "prefill_s": {
+          "median": 39.04911038892646,
+          "mean": 38.46012339074289
+        },
+        "ttft_s": {
+          "median": 38.06847956782237,
+          "mean": 37.586271611803355
+        },
+        "generation_s": {
+          "median": 0.12819324573460728,
+          "mean": -1.140524083568284
+        },
+        "wall_latency_s": {
+          "median": 18.50581833222828,
+          "mean": 17.894239462994094
+        },
+        "request_throughput_per_s": {
+          "median": 22.70814670876893,
+          "mean": 21.63877432714613
+        },
+        "aggregate_request_throughput_per_s": 21.794133987625614
+      },
+      "cache_evidence": {
+        "counts_available": true,
+        "supports_prefix_reuse": true,
+        "shared_shortfall_count": 0,
+        "shared_drop_count": 0,
+        "interpretation": "Cached-token counts support substantial shared-prefix reuse."
+      }
+    },
+    "1024": {
+      "different_prefix": {
+        "prompt_tokens": {
+          "count": 15,
+          "mean": 1051.0,
+          "median": 1051.0,
+          "p95": null
+        },
+        "cached_prompt_tokens": {
+          "count": 15,
+          "mean": 16.066666666666666,
+          "median": 16.0,
+          "p95": null
+        },
+        "uncached_prompt_tokens": {
+          "count": 15,
+          "mean": 1034.9333333333334,
+          "median": 1035.0,
+          "p95": null
+        },
+        "output_tokens": {
+          "count": 15,
+          "mean": 16.0,
+          "median": 16.0,
+          "p95": null
+        },
+        "cached_fraction": {
+          "count": 15,
+          "mean": 0.015286924271806395,
+          "median": 0.015223596574690771,
+          "p95": null
+        },
+        "prefill_s": {
+          "count": 15,
+          "mean": 1.594802,
+          "median": 1.647698,
+          "p95": null
+        },
+        "ttft_s": {
+          "count": 15,
+          "mean": 1.7044293133333364,
+          "median": 1.742261899999903,
+          "p95": null
+        },
+        "generation_s": {
+          "count": 15,
+          "mean": 0.9217519333333334,
+          "median": 0.91654,
+          "p95": null
+        },
+        "wall_latency_s": {
+          "count": 15,
+          "mean": 2.627416120000089,
+          "median": 2.664369000000079,
+          "p95": null
+        },
+        "request_throughput_per_s": {
+          "count": 15,
+          "mean": 0.3815413346553151,
+          "median": 0.37532338801418663,
+          "p95": null
+        },
+        "aggregate_request_throughput_per_s": 0.38060206466266416,
+        "short_output_count": 0,
+        "cache_shortfall_count": 0,
+        "cache_drop_count": 0
+      },
+      "shared_prefix": {
+        "prompt_tokens": {
+          "count": 15,
+          "mean": 1051.0,
+          "median": 1051.0,
+          "p95": null
+        },
+        "cached_prompt_tokens": {
+          "count": 15,
+          "mean": 1028.0,
+          "median": 1028.0,
+          "p95": null
+        },
+        "uncached_prompt_tokens": {
+          "count": 15,
+          "mean": 23.0,
+          "median": 23.0,
+          "p95": null
+        },
+        "output_tokens": {
+          "count": 15,
+          "mean": 16.0,
+          "median": 16.0,
+          "p95": null
+        },
+        "cached_fraction": {
+          "count": 15,
+          "mean": 0.9781171415069291,
+          "median": 0.978116079923882,
+          "p95": null
+        },
+        "prefill_s": {
+          "count": 15,
+          "mean": 0.5137405999333333,
+          "median": 0.51684,
+          "p95": null
+        },
+        "ttft_s": {
+          "count": 15,
+          "mean": 0.5983933333332364,
+          "median": 0.5723158999999214,
+          "p95": null
+        },
+        "generation_s": {
+          "count": 15,
+          "mean": 0.9308662666666667,
+          "median": 0.921956,
+          "p95": null
+        },
+        "wall_latency_s": {
+          "count": 15,
+          "mean": 1.5292405866667347,
+          "median": 1.5035453999998936,
+          "p95": null
+        },
+        "request_throughput_per_s": {
+          "count": 15,
+          "mean": 0.6554650381701717,
+          "median": 0.6650946489544451,
+          "p95": null
+        },
+        "aggregate_request_throughput_per_s": 0.6539193431817597,
+        "short_output_count": 0,
+        "cache_shortfall_count": 0,
+        "cache_drop_count": 0
+      },
+      "improvement_percent": {
+        "uncached_prompt_tokens": {
+          "median": 97.77777777777777,
+          "mean": 97.77763463024993
+        },
+        "prefill_s": {
+          "median": 68.63260136262835,
+          "mean": 67.78655908800381
+        },
+        "ttft_s": {
+          "median": 67.15098344284787,
+          "mean": 64.89186564369959
+        },
+        "generation_s": {
+          "median": -0.5909180177624518,
+          "mean": -0.9888054479444544
+        },
+        "wall_latency_s": {
+          "median": 43.56842464388945,
+          "mean": 41.79678753486971
+        },
+        "request_throughput_per_s": {
+          "median": 77.20575647401586,
+          "mean": 71.79397843285304
+        },
+        "aggregate_request_throughput_per_s": 71.81182234556256
+      },
+      "cache_evidence": {
+        "counts_available": true,
+        "supports_prefix_reuse": true,
+        "shared_shortfall_count": 0,
+        "shared_drop_count": 0,
+        "interpretation": "Cached-token counts support substantial shared-prefix reuse."
+      }
+    },
+    "2048": {
+      "different_prefix": {
+        "prompt_tokens": {
+          "count": 15,
+          "mean": 2065.0,
+          "median": 2065.0,
+          "p95": null
+        },
+        "cached_prompt_tokens": {
+          "count": 15,
+          "mean": 16.066666666666666,
+          "median": 16.0,
+          "p95": null
+        },
+        "uncached_prompt_tokens": {
+          "count": 15,
+          "mean": 2048.9333333333334,
+          "median": 2049.0,
+          "p95": null
+        },
+        "output_tokens": {
+          "count": 15,
+          "mean": 16.0,
+          "median": 16.0,
+          "p95": null
+        },
+        "cached_fraction": {
+          "count": 15,
+          "mean": 0.0077804859403427015,
+          "median": 0.00774818401937046,
+          "p95": null
+        },
+        "prefill_s": {
+          "count": 15,
+          "mean": 2.6942887333333334,
+          "median": 2.757491,
+          "p95": null
+        },
+        "ttft_s": {
+          "count": 15,
+          "mean": 2.878853593333406,
+          "median": 2.9857325000002675,
+          "p95": null
+        },
+        "generation_s": {
+          "count": 15,
+          "mean": 0.9951386,
+          "median": 0.98636,
+          "p95": null
+        },
+        "wall_latency_s": {
+          "count": 15,
+          "mean": 3.8736203533334144,
+          "median": 3.972066299999824,
+          "p95": null
+        },
+        "request_throughput_per_s": {
+          "count": 15,
+          "mean": 0.2593091314814253,
+          "median": 0.25175813404727015,
+          "p95": null
+        },
+        "aggregate_request_throughput_per_s": 0.2581564295890426,
+        "short_output_count": 0,
+        "cache_shortfall_count": 0,
+        "cache_drop_count": 0
+      },
+      "shared_prefix": {
+        "prompt_tokens": {
+          "count": 15,
+          "mean": 2065.0,
+          "median": 2065.0,
+          "p95": null
+        },
+        "cached_prompt_tokens": {
+          "count": 15,
+          "mean": 2042.0,
+          "median": 2042.0,
+          "p95": null
+        },
+        "uncached_prompt_tokens": {
+          "count": 15,
+          "mean": 23.0,
+          "median": 23.0,
+          "p95": null
+        },
+        "output_tokens": {
+          "count": 15,
+          "mean": 16.0,
+          "median": 16.0,
+          "p95": null
+        },
+        "cached_fraction": {
+          "count": 15,
+          "mean": 0.9888622636142735,
+          "median": 0.988861985472155,
+          "p95": null
+        },
+        "prefill_s": {
+          "count": 15,
+          "mean": 0.5717045332666667,
+          "median": 0.566609,
+          "p95": null
+        },
+        "ttft_s": {
+          "count": 15,
+          "mean": 0.6352488599998954,
+          "median": 0.6023026999991998,
+          "p95": null
+        },
+        "generation_s": {
+          "count": 15,
+          "mean": 1.0072366,
+          "median": 1.003217,
+          "p95": null
+        },
+        "wall_latency_s": {
+          "count": 15,
+          "mean": 1.6439790533332295,
+          "median": 1.6177539000000252,
+          "p95": null
+        },
+        "request_throughput_per_s": {
+          "count": 15,
+          "mean": 0.6097083266216254,
+          "median": 0.6181409916551488,
+          "p95": null
+        },
+        "aggregate_request_throughput_per_s": 0.6082802563526964,
+        "short_output_count": 0,
+        "cache_shortfall_count": 0,
+        "cache_drop_count": 0
+      },
+      "improvement_percent": {
+        "uncached_prompt_tokens": {
+          "median": 98.87750122010736,
+          "mean": 98.87746469707815
+        },
+        "prefill_s": {
+          "median": 79.45200909087282,
+          "mean": 78.78087354953371
+        },
+        "ttft_s": {
+          "median": 79.82730535976864,
+          "mean": 77.93396435751548
+        },
+        "generation_s": {
+          "median": -1.7090109087959782,
+          "mean": -1.2157100528509237
+        },
+        "wall_latency_s": {
+          "median": 59.27172967882996,
+          "mean": 57.55962372723191
+        },
+        "request_throughput_per_s": {
+          "median": 145.52970016018887,
+          "mean": 135.12798147075657
+        },
+        "aggregate_request_throughput_per_s": 135.6246781538672
+      },
+      "cache_evidence": {
+        "counts_available": true,
+        "supports_prefix_reuse": true,
+        "shared_shortfall_count": 0,
+        "shared_drop_count": 0,
+        "interpretation": "Cached-token counts support substantial shared-prefix reuse."
+      }
+    },
+    "4096": {
+      "different_prefix": {
+        "prompt_tokens": {
+          "count": 15,
+          "mean": 4119.0,
+          "median": 4119.0,
+          "p95": null
+        },
+        "cached_prompt_tokens": {
+          "count": 15,
+          "mean": 16.2,
+          "median": 16.0,
+          "p95": null
+        },
+        "uncached_prompt_tokens": {
+          "count": 15,
+          "mean": 4102.8,
+          "median": 4102.0,
+          "p95": null
+        },
+        "output_tokens": {
+          "count": 15,
+          "mean": 16.0,
+          "median": 16.0,
+          "p95": null
+        },
+        "cached_fraction": {
+          "count": 15,
+          "mean": 0.003932985864720405,
+          "median": 0.003885381253035454,
+          "p95": null
+        },
+        "prefill_s": {
+          "count": 15,
+          "mean": 5.9036788,
+          "median": 5.909577,
+          "p95": null
+        },
+        "ttft_s": {
+          "count": 15,
+          "mean": 6.210532839999966,
+          "median": 6.2477946999997584,
+          "p95": null
+        },
+        "generation_s": {
+          "count": 15,
+          "mean": 1.1399923332666666,
+          "median": 1.132906,
+          "p95": null
+        },
+        "wall_latency_s": {
+          "count": 15,
+          "mean": 7.3532384733332945,
+          "median": 7.356647399999929,
+          "p95": null
+        },
+        "request_throughput_per_s": {
+          "count": 15,
+          "mean": 0.13610337214195564,
+          "median": 0.13593148422473117,
+          "p95": null
+        },
+        "aggregate_request_throughput_per_s": 0.13599450141954805,
+        "short_output_count": 0,
+        "cache_shortfall_count": 0,
+        "cache_drop_count": 0
+      },
+      "shared_prefix": {
+        "prompt_tokens": {
+          "count": 15,
+          "mean": 4119.0,
+          "median": 4119.0,
+          "p95": null
+        },
+        "cached_prompt_tokens": {
+          "count": 15,
+          "mean": 4096.0,
+          "median": 4096.0,
+          "p95": null
+        },
+        "uncached_prompt_tokens": {
+          "count": 15,
+          "mean": 23.0,
+          "median": 23.0,
+          "p95": null
+        },
+        "output_tokens": {
+          "count": 15,
+          "mean": 16.0,
+          "median": 16.0,
+          "p95": null
+        },
+        "cached_fraction": {
+          "count": 15,
+          "mean": 0.9944161907345951,
+          "median": 0.9944161204175771,
+          "p95": null
+        },
+        "prefill_s": {
+          "count": 15,
+          "mean": 0.7470157333333334,
+          "median": 0.732415,
+          "p95": null
+        },
+        "ttft_s": {
+          "count": 15,
+          "mean": 0.8925079066666513,
+          "median": 0.8060891000004631,
+          "p95": null
+        },
+        "generation_s": {
+          "count": 15,
+          "mean": 1.1478207333333335,
+          "median": 1.132929,
+          "p95": null
+        },
+        "wall_latency_s": {
+          "count": 15,
+          "mean": 1.9786975066666854,
+          "median": 1.954916200000298,
+          "p95": null
+        },
+        "request_throughput_per_s": {
+          "count": 15,
+          "mean": 0.506218989759845,
+          "median": 0.5115308778963761,
+          "p95": null
+        },
+        "aggregate_request_throughput_per_s": 0.5053829585526695,
+        "short_output_count": 0,
+        "cache_shortfall_count": 0,
+        "cache_drop_count": 0
+      },
+      "improvement_percent": {
+        "uncached_prompt_tokens": {
+          "median": 99.43929790346172,
+          "mean": 99.43940723408404
+        },
+        "prefill_s": {
+          "median": 87.60630413987329,
+          "mean": 87.34660609697579
+        },
+        "ttft_s": {
+          "median": 87.09802196284564,
+          "mean": 85.6291250741272
+        },
+        "generation_s": {
+          "median": -0.0020301772609648346,
+          "mean": -0.6867063784748836
+        },
+        "wall_latency_s": {
+          "median": 73.4265339398988,
+          "mean": 73.09080191207613
+        },
+        "request_throughput_per_s": {
+          "median": 276.31523028960567,
+          "mean": 271.9371399790589
+        },
+        "aggregate_request_throughput_per_s": 271.62014145964946
+      },
+      "cache_evidence": {
+        "counts_available": true,
+        "supports_prefix_reuse": true,
+        "shared_shortfall_count": 0,
+        "shared_drop_count": 0,
+        "interpretation": "Cached-token counts support substantial shared-prefix reuse."
+      }
+    },
+    "6144": {
+      "different_prefix": {
+        "prompt_tokens": {
+          "count": 15,
+          "mean": 6173.0,
+          "median": 6173.0,
+          "p95": null
+        },
+        "cached_prompt_tokens": {
+          "count": 15,
+          "mean": 16.0,
+          "median": 16.0,
+          "p95": null
+        },
+        "uncached_prompt_tokens": {
+          "count": 15,
+          "mean": 6157.0,
+          "median": 6157.0,
+          "p95": null
+        },
+        "output_tokens": {
+          "count": 15,
+          "mean": 16.0,
+          "median": 16.0,
+          "p95": null
+        },
+        "cached_fraction": {
+          "count": 15,
+          "mean": 0.0025919326913619012,
+          "median": 0.0025919326097521463,
+          "p95": null
+        },
+        "prefill_s": {
+          "count": 15,
+          "mean": 9.265466333333334,
+          "median": 9.236839,
+          "p95": null
+        },
+        "ttft_s": {
+          "count": 15,
+          "mean": 9.649372139999892,
+          "median": 9.620469499999672,
+          "p95": null
+        },
+        "generation_s": {
+          "count": 15,
+          "mean": 1.3003828666666666,
+          "median": 1.271836,
+          "p95": null
+        },
+        "wall_latency_s": {
+          "count": 15,
+          "mean": 10.948106586666473,
+          "median": 10.899642200000017,
+          "p95": null
+        },
+        "request_throughput_per_s": {
+          "count": 15,
+          "mean": 0.09138566458097543,
+          "median": 0.09174613089592963,
+          "p95": null
+        },
+        "aggregate_request_throughput_per_s": 0.09133999491911089,
+        "short_output_count": 0,
+        "cache_shortfall_count": 0,
+        "cache_drop_count": 0
+      },
+      "shared_prefix": {
+        "prompt_tokens": {
+          "count": 15,
+          "mean": 6173.0,
+          "median": 6173.0,
+          "p95": null
+        },
+        "cached_prompt_tokens": {
+          "count": 15,
+          "mean": 6150.0,
+          "median": 6150.0,
+          "p95": null
+        },
+        "uncached_prompt_tokens": {
+          "count": 15,
+          "mean": 23.0,
+          "median": 23.0,
+          "p95": null
+        },
+        "output_tokens": {
+          "count": 15,
+          "mean": 16.0,
+          "median": 16.0,
+          "p95": null
+        },
+        "cached_fraction": {
+          "count": 15,
+          "mean": 0.9962741282422308,
+          "median": 0.9962740968734813,
+          "p95": null
+        },
+        "prefill_s": {
+          "count": 15,
+          "mean": 0.947411,
+          "median": 0.931472,
+          "p95": null
+        },
+        "ttft_s": {
+          "count": 15,
+          "mean": 1.025287626666553,
+          "median": 1.029305299999578,
+          "p95": null
+        },
+        "generation_s": {
+          "count": 15,
+          "mean": 1.3235662,
+          "median": 1.296067,
+          "p95": null
+        },
+        "wall_latency_s": {
+          "count": 15,
+          "mean": 2.3491415399999216,
+          "median": 2.3413862999996127,
+          "p95": null
+        },
+        "request_throughput_per_s": {
+          "count": 15,
+          "mean": 0.4268233304016535,
+          "median": 0.4270973995193213,
+          "p95": null
+        },
+        "aggregate_request_throughput_per_s": 0.42568741941366095,
+        "short_output_count": 0,
+        "cache_shortfall_count": 0,
+        "cache_drop_count": 0
+      },
+      "improvement_percent": {
+        "uncached_prompt_tokens": {
+          "median": 99.6264414487575,
+          "mean": 99.6264414487575
+        },
+        "prefill_s": {
+          "median": 89.91568435911897,
+          "mean": 89.77481579538413
+        },
+        "ttft_s": {
+          "median": 89.30088287271622,
+          "mean": 89.37456642990905
+        },
+        "generation_s": {
+          "median": -1.905198468985004,
+          "mean": -1.782808273440289
+        },
+        "wall_latency_s": {
+          "median": 78.51868660422991,
+          "mean": 78.54294236721348
+        },
+        "request_throughput_per_s": {
+          "median": 365.52088393110614,
+          "mean": 367.0572046050526
+        },
+        "aggregate_request_throughput_per_s": 366.04712403437543
+      },
+      "cache_evidence": {
+        "counts_available": true,
+        "supports_prefix_reuse": true,
+        "shared_shortfall_count": 0,
+        "shared_drop_count": 0,
+        "interpretation": "Cached-token counts support substantial shared-prefix reuse."
+      }
+    }
+  }
+}
