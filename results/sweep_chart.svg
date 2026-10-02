@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 620" role="img" aria-label="Median TTFT and prompt evaluation time by prefix length">
+<rect width="100%" height="100%" fill="white"/>
+<style>text{font:14px Arial,sans-serif;fill:#1f2937}.title{font-size:22px;font-weight:bold}.panel{font-size:17px;font-weight:bold}.axis{stroke:#9ca3af;stroke-width:1}.grid{stroke:#e5e7eb;stroke-width:1}</style>
+<text x="60" y="35" class="title">Shared-prefix sweep: median latency</text>
+<line x1="570" y1="52" x2="598" y2="52" stroke="#d97706" stroke-width="3"/>
+<text x="605" y="57">Different prefix</text>
+<line x1="740" y1="52" x2="768" y2="52" stroke="#2563eb" stroke-width="3"/>
+<text x="775" y="57">Shared prefix</text>
+<text x="75" y="85" class="panel">Time to first token (seconds)</text>
+<line x1="75" y1="300.0" x2="850" y2="300.0" class="grid"/>
+<text x="65" y="305.0" text-anchor="end">0.0</text>
+<line x1="75" y1="251.2" x2="850" y2="251.2" class="grid"/>
+<text x="65" y="256.2" text-anchor="end">0.5</text>
+<line x1="75" y1="202.5" x2="850" y2="202.5" class="grid"/>
+<text x="65" y="207.5" text-anchor="end">1.0</text>
+<line x1="75" y1="153.8" x2="850" y2="153.8" class="grid"/>
+<text x="65" y="158.8" text-anchor="end">1.5</text>
+<line x1="75" y1="105.0" x2="850" y2="105.0" class="grid"/>
+<text x="65" y="110.0" text-anchor="end">2.0</text>
+<line x1="75" y1="105" x2="75" y2="300" class="axis"/>
+<line x1="75" y1="300" x2="850" y2="300" class="axis"/>
+<text x="75.0" y="321" text-anchor="middle">20</text>
+<text x="850.0" y="321" text-anchor="middle">40</text>
+<polyline points="75.0,191.3 850.0,130.4" fill="none" stroke="#d97706" stroke-width="3"/>
+<circle cx="75.0" cy="191.3" r="4" fill="#d97706"/>
+<circle cx="850.0" cy="130.4" r="4" fill="#d97706"/>
+<polyline points="75.0,258.1 850.0,260.4" fill="none" stroke="#2563eb" stroke-width="3"/>
+<circle cx="75.0" cy="258.1" r="4" fill="#2563eb"/>
+<circle cx="850.0" cy="260.4" r="4" fill="#2563eb"/>
+<text x="75" y="355" class="panel">Prompt evaluation time (seconds)</text>
+<line x1="75" y1="570.0" x2="850" y2="570.0" class="grid"/>
+<text x="65" y="575.0" text-anchor="end">0.0</text>
+<line x1="75" y1="521.2" x2="850" y2="521.2" class="grid"/>
+<text x="65" y="526.2" text-anchor="end">0.5</text>
+<line x1="75" y1="472.5" x2="850" y2="472.5" class="grid"/>
+<text x="65" y="477.5" text-anchor="end">1.0</text>
+<line x1="75" y1="423.8" x2="850" y2="423.8" class="grid"/>
+<text x="65" y="428.8" text-anchor="end">1.5</text>
+<line x1="75" y1="375.0" x2="850" y2="375.0" class="grid"/>
+<text x="65" y="380.0" text-anchor="end">1.9</text>
+<line x1="75" y1="375" x2="75" y2="570" class="axis"/>
+<line x1="75" y1="570" x2="850" y2="570" class="axis"/>
+<text x="75.0" y="591" text-anchor="middle">20</text>
+<text x="850.0" y="591" text-anchor="middle">40</text>
+<polyline points="75.0,465.7 850.0,400.4" fill="none" stroke="#d97706" stroke-width="3"/>
+<circle cx="75.0" cy="465.7" r="4" fill="#d97706"/>
+<circle cx="850.0" cy="400.4" r="4" fill="#d97706"/>
+<polyline points="75.0,530.2 850.0,530.8" fill="none" stroke="#2563eb" stroke-width="3"/>
+<circle cx="75.0" cy="530.2" r="4" fill="#2563eb"/>
+<circle cx="850.0" cy="530.8" r="4" fill="#2563eb"/>
+<text x="450" y="608" text-anchor="middle">Configured prefix length (lines)</text></svg>

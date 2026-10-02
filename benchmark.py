@@ -13,13 +13,14 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
+from chart import save_sweep_chart
 from config import Config
-from metrics import summarize
+from metrics import summarize, summarize_sweep
 from prompts import make_prefix, prompt
 
 
 CSV_FIELDS = [
-    "scenario", "trial", "request_index", "prompt_tokens", "cached_prompt_tokens",
+    "run_id", "prefix_lines", "scenario", "trial", "request_index", "prompt_tokens", "cached_prompt_tokens",
     "uncached_prompt_tokens",
     "output_tokens", "ttft_s", "prefill_s", "generation_s", "api_total_s",
     "wall_latency_s", "prompt_tokens_per_s", "generation_tokens_per_s",
@@ -125,6 +126,17 @@ def measured_request(config: Config, content: str) -> dict:
     return row
 
 
+def verify_context(prompt_tokens: int | None, config: Config, description: str, reserve: int = 0) -> None:
+    if not isinstance(prompt_tokens, int) or prompt_tokens <= 0:
+        raise RuntimeError(f"{description}: Ollama did not report a valid prompt token count")
+    required = prompt_tokens + config.max_output_tokens + reserve
+    if required > config.context_window:
+        raise RuntimeError(
+            f"{description}: {prompt_tokens} prompt + {config.max_output_tokens} output"
+            f" + {reserve} reserve = {required} tokens exceeds num_ctx={config.context_window}"
+        )
+
+
 def fmt(value, unit="") -> str:
     return "n/a" if value is None else f"{value:.3f}{unit}"
 
@@ -151,7 +163,17 @@ def print_summary(stats: dict) -> None:
         print("Cached-token count unavailable; timings alone cannot establish cache reuse.")
 
 
-def parse_args():
+def parse_prefix_lengths(value: str) -> tuple[int, ...]:
+    try:
+        lengths = tuple(int(item.strip()) for item in value.split(","))
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("prefix lengths must be comma-separated positive integers") from exc
+    if not lengths or any(length <= 0 for length in lengths) or len(set(lengths)) != len(lengths):
+        raise argparse.ArgumentTypeError("prefix lengths must be unique positive integers")
+    return lengths
+
+
+def parse_args(argv=None):
     defaults = Config()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--url", default=defaults.url)
@@ -159,23 +181,33 @@ def parse_args():
     parser.add_argument("--trials", type=int, default=defaults.trials)
     parser.add_argument("--requests", type=int, default=defaults.requests_per_trial)
     parser.add_argument("--prefix-lines", type=int, default=defaults.prefix_lines)
+    parser.add_argument("--sweep", action="store_true", help="run all configured prefix lengths")
+    parser.add_argument("--prefix-lengths", type=parse_prefix_lengths,
+                        help="comma-separated sweep lengths (default: 20,40,80,105,160,220); implies --sweep")
     parser.add_argument("--max-output-tokens", type=int, default=defaults.max_output_tokens)
     parser.add_argument("--num-ctx", type=int, default=defaults.context_window)
     parser.add_argument("--timeout", type=int, default=defaults.timeout_s)
-    parser.add_argument("--csv", default=defaults.raw_csv)
-    parser.add_argument("--summary", default=defaults.summary_json)
-    args = parser.parse_args()
-    if min(args.trials, args.requests, args.prefix_lines, args.max_output_tokens, args.num_ctx) <= 0:
+    parser.add_argument("--csv", help="request-level CSV output path")
+    parser.add_argument("--summary", help="JSON summary output path")
+    parser.add_argument("--chart", default=defaults.chart_svg, help="sweep SVG chart output path")
+    args = parser.parse_args(argv)
+    if min(args.trials, args.requests, args.prefix_lines, args.max_output_tokens, args.num_ctx, args.timeout) <= 0:
         parser.error("counts and context size must be positive")
+    sweep = args.sweep or args.prefix_lengths is not None
     return Config(url=args.url.rstrip("/"), model=args.model, trials=args.trials,
                   requests_per_trial=args.requests, prefix_lines=args.prefix_lines,
                   max_output_tokens=args.max_output_tokens, context_window=args.num_ctx,
-                  timeout_s=args.timeout, raw_csv=args.csv, summary_json=args.summary)
+                  timeout_s=args.timeout,
+                  raw_csv=args.csv or ("results/sweep_raw_results.csv" if sweep else defaults.raw_csv),
+                  summary_json=args.summary or ("results/sweep_summary.json" if sweep else defaults.summary_json),
+                  sweep=sweep, prefix_lengths=args.prefix_lengths or defaults.prefix_lengths,
+                  chart_svg=args.chart)
 
 
 def main() -> int:
     config = parse_args()
-    run_id = secrets.token_hex(6)
+    lengths = config.prefix_lengths if config.sweep else (config.prefix_lines,)
+    run_id = secrets.token_hex(12)
     version = get_version(config)
     if version is None:
         print(f"Ollama is unavailable at {config.url}; start Ollama first.", file=sys.stderr)
@@ -184,9 +216,12 @@ def main() -> int:
     print("Warming model and runner...")
     for index in range(2):
         stream_generate(config, f"Warm-up {index}: Say hello in one short sentence.")
-    stream_generate(config, prompt(make_prefix(f"long-warmup-{run_id}", config.prefix_lines), 999))
+    longest = max(lengths)
+    warmup = stream_generate(config, prompt(make_prefix(f"long-warmup-{run_id}", longest), 999))
+    # Ollama has no standard tokenize endpoint. A distinct longest-length probe
+    # provides a preflight budget; every subsequent API count is checked too.
+    verify_context(warmup["prompt_tokens"], config, "long warm-up", reserve=256)
 
-    shared = make_prefix(f"shared-{run_id}", config.prefix_lines)
     rows = []
     csv_path = Path(config.raw_csv)
     csv_path.parent.mkdir(parents=True, exist_ok=True)
@@ -195,27 +230,33 @@ def main() -> int:
         writer = csv.DictWriter(csv_file, fieldnames=CSV_FIELDS)
         writer.writeheader()
         csv_file.flush()
-        for trial in range(1, config.trials + 1):
-            # Alternate block order to limit monotonic clock/thermal effects.
-            order = ("different_prefix", "shared_prefix") if trial % 2 else ("shared_prefix", "different_prefix")
-            for scenario in order:
-                if scenario == "shared_prefix":
-                    # Explicitly prime the common prefix outside measured requests.
-                    stream_generate(config, prompt(shared, 900 + trial))
-                for index in range(1, config.requests_per_trial + 1):
-                    identity = f"unique-{run_id}-{trial:03d}-{index:03d}"
-                    prefix = shared if scenario == "shared_prefix" else make_prefix(identity, config.prefix_lines)
-                    content = prompt(prefix, index)
-                    result = measured_request(config, content)
-                    row = {"scenario": scenario, "trial": trial, "request_index": index, **result}
-                    rows.append(row)
-                    writer.writerow(row)
-                    csv_file.flush()
-                    print(f"{scenario} trial={trial} request={index} "
-                          f"tokens={result['prompt_tokens']} cached={result['cached_prompt_tokens']} "
-                          f"prefill={fmt(result['prefill_s'], 's')} wall={fmt(result['wall_latency_s'], 's')}", flush=True)
+        block_number = 0
+        for length in lengths:
+            shared = make_prefix(f"shared-{run_id}-{length}", length)
+            for trial in range(1, config.trials + 1):
+                # Alternate order across all length/trial pairs.
+                order = ("different_prefix", "shared_prefix") if block_number % 2 == 0 else ("shared_prefix", "different_prefix")
+                block_number += 1
+                for scenario in order:
+                    if scenario == "shared_prefix":
+                        # Prime outside the measured rows.
+                        prime = stream_generate(config, prompt(shared, 900 + trial))
+                        verify_context(prime["prompt_tokens"], config, f"{length}-line shared prime", reserve=256)
+                    for index in range(1, config.requests_per_trial + 1):
+                        identity = f"unique-{run_id}-{length}-{trial:03d}-{index:03d}"
+                        prefix = shared if scenario == "shared_prefix" else make_prefix(identity, length)
+                        result = measured_request(config, prompt(prefix, index))
+                        verify_context(result["prompt_tokens"], config, f"{length}-line {scenario} request", reserve=256)
+                        row = {"run_id": run_id, "prefix_lines": length, "scenario": scenario,
+                               "trial": trial, "request_index": index, **result}
+                        rows.append(row)
+                        writer.writerow(row)
+                        csv_file.flush()
+                        print(f"lines={length} {scenario} trial={trial} request={index} "
+                              f"tokens={result['prompt_tokens']} cached={result['cached_prompt_tokens']} "
+                              f"prefill={fmt(result['prefill_s'], 's')} wall={fmt(result['wall_latency_s'], 's')}", flush=True)
 
-    stats = summarize(rows)
+    stats = summarize_sweep(rows, lengths) if config.sweep else summarize(rows)
     summary_path = Path(config.summary_json)
     summary_path.parent.mkdir(parents=True, exist_ok=True)
     summary = {
@@ -226,18 +267,28 @@ def main() -> int:
         "model": config.model,
         "system": platform.platform(),
         "settings": {"trials": config.trials, "requests_per_trial": config.requests_per_trial,
-                     "prefix_lines": config.prefix_lines, "temperature": config.temperature,
+                     **({"prefix_lengths": list(lengths)} if config.sweep else {"prefix_lines": config.prefix_lines}),
+                     "temperature": config.temperature,
                      "max_output_tokens": config.max_output_tokens, "num_ctx": config.context_window,
                      "concurrency": 1, "raw_prompt": True},
-        "notes": ["Shared prefix is explicitly primed before each block.",
+        "notes": ["The reported workload uses a warm prefix. Shared prefix is explicitly primed before each block; priming requests are excluded from measurements.",
+                  "Prompt token counts are reported by Ollama; the distinct longest-length warm-up and each priming and measured request are checked against num_ctx with room for max output tokens and a 256-token reserve.",
                   "GPU memory is an end-of-request whole-device snapshot, not peak or model-only usage.",
                   "TTFT is client-observed time to first nonempty streamed response chunk.",
                   "Prompt tokens/s divides uncached prompt tokens by prompt evaluation duration; unavailable without cached-token count."],
         "statistics": stats,
     }
     summary_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
-    print_summary(stats)
-    print(f"\nSaved {csv_path} and {summary_path}")
+    if config.sweep:
+        save_sweep_chart(stats, lengths, config.chart_svg)
+        for length in lengths:
+            gain = stats[str(length)]["improvement_percent"]
+            print(f"{length} lines: median TTFT {fmt(gain['ttft_s']['median'], '%')} improvement; "
+                  f"median prompt eval {fmt(gain['prefill_s']['median'], '%')} improvement")
+        print(f"\nSaved {csv_path}, {summary_path}, and {config.chart_svg}")
+    else:
+        print_summary(stats)
+        print(f"\nSaved {csv_path} and {summary_path}")
     return 0
 
 

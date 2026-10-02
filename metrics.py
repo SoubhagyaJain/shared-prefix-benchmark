@@ -53,3 +53,47 @@ def summarize(rows: list[dict]) -> dict:
         "request_throughput": improvement(a["request_throughput_per_s"], b["request_throughput_per_s"], False),
     }
     return stats
+
+
+def summarize_sweep(rows: list[dict], prefix_lengths: tuple[int, ...]) -> dict:
+    """Keep observations separate by configured length and scenario."""
+    fields = (
+        "prompt_tokens", "cached_prompt_tokens", "uncached_prompt_tokens", "output_tokens",
+        "prefill_s", "ttft_s", "generation_s", "wall_latency_s",
+        "request_throughput_per_s",
+    )
+    result = {}
+    for length in prefix_lengths:
+        groups = {
+            scenario: [row for row in rows if row["prefix_lines"] == length and row["scenario"] == scenario]
+            for scenario in ("different_prefix", "shared_prefix")
+        }
+        stats = {}
+        for scenario, group in groups.items():
+            enriched = [
+                {**row, "request_throughput_per_s": 1 / row["wall_latency_s"]
+                 if row.get("wall_latency_s") else None}
+                for row in group
+            ]
+            stats[scenario] = {field: describe(enriched, field) for field in fields}
+            wall_sum = sum(row["wall_latency_s"] for row in group if row.get("wall_latency_s") is not None)
+            stats[scenario]["aggregate_request_throughput_per_s"] = (
+                len(group) / wall_sum if wall_sum else None
+            )
+        baseline = stats["different_prefix"]
+        shared = stats["shared_prefix"]
+        gains = {}
+        for field in ("uncached_prompt_tokens", "prefill_s", "ttft_s", "generation_s", "wall_latency_s", "request_throughput_per_s"):
+            gains[field] = {
+                stat: improvement(
+                    baseline[field][stat], shared[field][stat],
+                    lower_is_better=field != "request_throughput_per_s",
+                )
+                for stat in ("median", "mean")
+            }
+        gains["aggregate_request_throughput_per_s"] = improvement(
+            baseline["aggregate_request_throughput_per_s"],
+            shared["aggregate_request_throughput_per_s"], False,
+        )
+        result[str(length)] = {**stats, "improvement_percent": gains}
+    return result

@@ -1,0 +1,316 @@
+{
+  "started_utc": "2026-10-02T03:07:37.657172+00:00",
+  "run_id": "2b8403a289b1bc5213681498",
+  "finished_utc": "2026-10-02T03:07:50.325764+00:00",
+  "ollama_version": "0.35.0",
+  "model": "qwen2.5:7b",
+  "system": "Windows-11-10.0.26200-SP0",
+  "settings": {
+    "trials": 1,
+    "requests_per_trial": 1,
+    "prefix_lengths": [
+      20,
+      40
+    ],
+    "temperature": 0.0,
+    "max_output_tokens": 16,
+    "num_ctx": 8192,
+    "concurrency": 1,
+    "raw_prompt": true
+  },
+  "notes": [
+    "The reported workload uses a warm prefix. Shared prefix is explicitly primed before each block; priming requests are excluded from measurements.",
+    "Prompt token counts are reported by Ollama; the distinct longest-length warm-up and each priming and measured request are checked against num_ctx with room for max output tokens and a 256-token reserve.",
+    "GPU memory is an end-of-request whole-device snapshot, not peak or model-only usage.",
+    "TTFT is client-observed time to first nonempty streamed response chunk.",
+    "Prompt tokens/s divides uncached prompt tokens by prompt evaluation duration; unavailable without cached-token count."
+  ],
+  "statistics": {
+    "20": {
+      "different_prefix": {
+        "prompt_tokens": {
+          "count": 1,
+          "mean": 604.0,
+          "median": 604.0,
+          "p95": null
+        },
+        "cached_prompt_tokens": {
+          "count": 1,
+          "mean": 2.0,
+          "median": 2.0,
+          "p95": null
+        },
+        "uncached_prompt_tokens": {
+          "count": 1,
+          "mean": 602.0,
+          "median": 602.0,
+          "p95": null
+        },
+        "output_tokens": {
+          "count": 1,
+          "mean": 16.0,
+          "median": 16.0,
+          "p95": null
+        },
+        "prefill_s": {
+          "count": 1,
+          "mean": 1.042045,
+          "median": 1.042045,
+          "p95": null
+        },
+        "ttft_s": {
+          "count": 1,
+          "mean": 1.1393606999999975,
+          "median": 1.1393606999999975,
+          "p95": null
+        },
+        "generation_s": {
+          "count": 1,
+          "mean": 0.980535,
+          "median": 0.980535,
+          "p95": null
+        },
+        "wall_latency_s": {
+          "count": 1,
+          "mean": 2.120802399999775,
+          "median": 2.120802399999775,
+          "p95": null
+        },
+        "request_throughput_per_s": {
+          "count": 1,
+          "mean": 0.4715196474693287,
+          "median": 0.4715196474693287,
+          "p95": null
+        },
+        "aggregate_request_throughput_per_s": 0.4715196474693287
+      },
+      "shared_prefix": {
+        "prompt_tokens": {
+          "count": 1,
+          "mean": 600.0,
+          "median": 600.0,
+          "p95": null
+        },
+        "cached_prompt_tokens": {
+          "count": 1,
+          "mean": 568.0,
+          "median": 568.0,
+          "p95": null
+        },
+        "uncached_prompt_tokens": {
+          "count": 1,
+          "mean": 32.0,
+          "median": 32.0,
+          "p95": null
+        },
+        "output_tokens": {
+          "count": 1,
+          "mean": 16.0,
+          "median": 16.0,
+          "p95": null
+        },
+        "prefill_s": {
+          "count": 1,
+          "mean": 0.397906,
+          "median": 0.397906,
+          "p95": null
+        },
+        "ttft_s": {
+          "count": 1,
+          "mean": 0.4392765000002328,
+          "median": 0.4392765000002328,
+          "p95": null
+        },
+        "generation_s": {
+          "count": 1,
+          "mean": 0.882068,
+          "median": 0.882068,
+          "p95": null
+        },
+        "wall_latency_s": {
+          "count": 1,
+          "mean": 1.321981600000072,
+          "median": 1.321981600000072,
+          "p95": null
+        },
+        "request_throughput_per_s": {
+          "count": 1,
+          "mean": 0.7564401804079162,
+          "median": 0.7564401804079162,
+          "p95": null
+        },
+        "aggregate_request_throughput_per_s": 0.7564401804079162
+      },
+      "improvement_percent": {
+        "uncached_prompt_tokens": {
+          "median": 94.6843853820598,
+          "mean": 94.6843853820598
+        },
+        "prefill_s": {
+          "median": 61.81489283092382,
+          "mean": 61.81489283092382
+        },
+        "ttft_s": {
+          "median": 61.445352643791054,
+          "mean": 61.445352643791054
+        },
+        "generation_s": {
+          "median": 10.042170855706331,
+          "mean": 10.042170855706331
+        },
+        "wall_latency_s": {
+          "median": 37.6659702007027,
+          "mean": 37.6659702007027
+        },
+        "request_throughput_per_s": {
+          "median": 60.42601500653713,
+          "mean": 60.42601500653713
+        },
+        "aggregate_request_throughput_per_s": 60.42601500653713
+      }
+    },
+    "40": {
+      "different_prefix": {
+        "prompt_tokens": {
+          "count": 1,
+          "mean": 1138.0,
+          "median": 1138.0,
+          "p95": null
+        },
+        "cached_prompt_tokens": {
+          "count": 1,
+          "mean": 2.0,
+          "median": 2.0,
+          "p95": null
+        },
+        "uncached_prompt_tokens": {
+          "count": 1,
+          "mean": 1136.0,
+          "median": 1136.0,
+          "p95": null
+        },
+        "output_tokens": {
+          "count": 1,
+          "mean": 16.0,
+          "median": 16.0,
+          "p95": null
+        },
+        "prefill_s": {
+          "count": 1,
+          "mean": 1.694379,
+          "median": 1.694379,
+          "p95": null
+        },
+        "ttft_s": {
+          "count": 1,
+          "mean": 1.7778905999998642,
+          "median": 1.7778905999998642,
+          "p95": null
+        },
+        "generation_s": {
+          "count": 1,
+          "mean": 0.889167,
+          "median": 0.889167,
+          "p95": null
+        },
+        "wall_latency_s": {
+          "count": 1,
+          "mean": 2.667569100000037,
+          "median": 2.667569100000037,
+          "p95": null
+        },
+        "request_throughput_per_s": {
+          "count": 1,
+          "mean": 0.3748731382440988,
+          "median": 0.3748731382440988,
+          "p95": null
+        },
+        "aggregate_request_throughput_per_s": 0.3748731382440988
+      },
+      "shared_prefix": {
+        "prompt_tokens": {
+          "count": 1,
+          "mean": 1126.0,
+          "median": 1126.0,
+          "p95": null
+        },
+        "cached_prompt_tokens": {
+          "count": 1,
+          "mean": 1094.0,
+          "median": 1094.0,
+          "p95": null
+        },
+        "uncached_prompt_tokens": {
+          "count": 1,
+          "mean": 32.0,
+          "median": 32.0,
+          "p95": null
+        },
+        "output_tokens": {
+          "count": 1,
+          "mean": 16.0,
+          "median": 16.0,
+          "p95": null
+        },
+        "prefill_s": {
+          "count": 1,
+          "mean": 0.391252,
+          "median": 0.391252,
+          "p95": null
+        },
+        "ttft_s": {
+          "count": 1,
+          "mean": 0.4149000000002161,
+          "median": 0.4149000000002161,
+          "p95": null
+        },
+        "generation_s": {
+          "count": 1,
+          "mean": 0.908023,
+          "median": 0.908023,
+          "p95": null
+        },
+        "wall_latency_s": {
+          "count": 1,
+          "mean": 1.3237017999999807,
+          "median": 1.3237017999999807,
+          "p95": null
+        },
+        "request_throughput_per_s": {
+          "count": 1,
+          "mean": 0.7554571581001208,
+          "median": 0.7554571581001208,
+          "p95": null
+        },
+        "aggregate_request_throughput_per_s": 0.7554571581001208
+      },
+      "improvement_percent": {
+        "uncached_prompt_tokens": {
+          "median": 97.1830985915493,
+          "mean": 97.1830985915493
+        },
+        "prefill_s": {
+          "median": 76.90882618351621,
+          "mean": 76.90882618351621
+        },
+        "ttft_s": {
+          "median": 76.6633560017558,
+          "mean": 76.6633560017558
+        },
+        "generation_s": {
+          "median": -2.1206365058532293,
+          "mean": -2.1206365058532293
+        },
+        "wall_latency_s": {
+          "median": 50.37797521346449,
+          "mean": 50.37797521346449
+        },
+        "request_throughput_per_s": {
+          "median": 101.52341713217248,
+          "mean": 101.52341713217248
+        },
+        "aggregate_request_throughput_per_s": 101.52341713217248
+      }
+    }
+  }
+}
